@@ -191,16 +191,20 @@
         </div>
     </div>
 
-    <div id="category-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 class="text-lg font-bold mb-4">Flytta vara</h3>
-            <select id="cat-edit-select" class="w-full p-4 bg-gray-50 border rounded-xl mb-6 outline-none"></select>
-            <div class="flex gap-3">
-                <button onclick="document.getElementById('category-modal').classList.add('hidden')" class="flex-1 py-3 text-sm font-bold text-gray-400">Avbryt</button>
-                <button onclick="window.saveCategoryChange()" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg">Spara</button>
-            </div>
+<div id="category-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+        <h3 class="text-lg font-bold mb-4 text-gray-800">Ändra kategori</h3>
+        <p class="text-xs text-gray-500 mb-4">Välj var den här varan ska sorteras i framtiden.</p>
+        
+        <select id="cat-edit-select" class="w-full p-4 bg-gray-50 border rounded-xl mb-6 outline-none text-sm">
+            </select>
+        
+        <div class="flex gap-3">
+            <button onclick="document.getElementById('category-modal').classList.add('hidden')" class="flex-1 py-3 text-sm font-bold text-gray-400">Avbryt</button>
+            <button onclick="window.saveCategoryChange()" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg">Spara för alla</button>
         </div>
     </div>
+</div>
 
     <div id="select-dish-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl flex flex-col max-h-[85vh]">
@@ -317,6 +321,58 @@ onSnapshot(doc(db, GLOBAL_SETTINGS_PATH, BASVAROR_DOC_NAME), (docSnap) => {
                 customCategories = docSnap.data().map || {};
             }
         });
+
+        // Variabel för att hålla koll på vilken vara vi ändrar just nu
+let itemToEdit = null;
+
+window.openCategoryModal = (itemName) => {
+    itemToEdit = itemName.toLowerCase();
+    
+    const modal = document.getElementById('category-modal');
+    const select = document.getElementById('cat-edit-select');
+    if (!modal || !select) return;
+
+    // 1. Sätt namnet i rubriken
+    const titleEl = modal.querySelector('h3');
+    if(titleEl) titleEl.innerText = `Kategori för ${itemName}`;
+
+    // 2. Fyll rullistan med alla befintliga kategorier
+    const standardCats = Object.keys(CATEGORY_KEYWORDS);
+    const existingCustomCats = Object.values(customCategories);
+    const allUniqueCats = [...new Set([...standardCats, ...existingCustomCats, 'Övrigt'])].sort();
+
+    select.innerHTML = allUniqueCats.map(cat => {
+        const isCurrent = categorizeIngredient(itemToEdit) === cat;
+        return `<option value="${cat}" ${isCurrent ? 'selected' : ''}>${cat}</option>`;
+    }).join('');
+
+    modal.classList.remove('hidden');
+};
+
+window.saveCategoryChange = async () => {
+    if (!itemToEdit) return;
+
+    const select = document.getElementById('cat-edit-select');
+    const newCat = select.value;
+
+    // Spara i det lokala "minnet"
+    customCategories[itemToEdit] = newCat;
+
+    // Spara till Firebase GLOBALT så alla hem får samma sortering
+    try {
+        const globalCatRef = doc(db, "globala_installningar", "kategorier");
+        await setDoc(globalCatRef, { map: customCategories });
+        
+        showToast(`"${itemToEdit}" flyttad till ${newCat}`);
+        document.getElementById('category-modal').classList.add('hidden');
+        
+        // Rita om listan direkt så varan flyttar på sig
+        generateShoppingList(); 
+    } catch (e) {
+        console.error("Kunde inte spara kategori:", e);
+        showToast("Gick inte att spara ändringen.");
+    }
+};
 
         // --- APP LOGIK (RUMS-ANPASSAD) ---
 
@@ -456,6 +512,17 @@ function renderDishList() {
             
             Object.values(window.currentMenu).forEach(ratt => {
                 if(ratt && ratt.ingredienser) allIngs = allIngs.concat(ratt.ingredienser);
+
+                // Inuti loopen i generateShoppingList:
+container.innerHTML += `
+    <div class="flex items-center gap-3 py-2 border-b border-yellow-100">
+        <input type="checkbox" onchange="window.handleCheck(this)" class="w-5 h-5 rounded border-yellow-300">
+        <span class="capitalize text-gray-700 cursor-pointer hover:text-emerald-600 hover:underline" 
+              onclick="window.openCategoryModal('${item}')">
+            ${item} 
+            <i class="fas fa-pencil-alt text-[9px] text-gray-300 ml-1 no-print"></i>
+        </span>
+    </div>`;
             });
 
             // Gruppera unika varor
@@ -893,6 +960,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
