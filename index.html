@@ -767,10 +767,34 @@ window.checkMateoClash = async () => {
             reader.readAsText(input.files[0]);
             input.value = ''; // Nollställ knappen
         };
+
+        // --- SÖKFUNKTION FÖR "VÄLJ RÄTT"-MODALEN ---
+        window.filterSelectModal = () => {
+            const term = document.getElementById('select-modal-search').value.toLowerCase();
+            const items = document.querySelectorAll('#select-dish-list > div');
+            
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                // Om texten matchar sökningen visar vi den, annars döljer vi
+                item.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+        };
+
+        // --- SÖKFUNKTION FÖR ALLA RECEPT-LISTAN ---
+        window.filterDishes = () => {
+            const term = document.getElementById('search-input').value.toLowerCase();
+            const items = document.querySelectorAll('#all-dishes-list > div');
+            
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                item.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+        };
     </script>
 </body>
 
 </html>
+
 
 
 
