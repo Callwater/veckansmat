@@ -305,8 +305,18 @@
         try { app = initializeApp(firebaseConfig); db = getFirestore(app); } 
         catch (e) { console.error("Firebase Error", e); document.getElementById('connection-status').innerHTML = '<i class="fas fa-exclamation-circle text-red-300"></i> Init Error'; }
 
-        const COLLECTION_NAME = "ratter";
-        const SETTINGS_COLLECTION = "inställningar";
+// 1. Kolla URL:en efter ?rum=namn
+const urlParams = new URLSearchParams(window.location.search);
+const currentRoom = urlParams.get('rum') || 'standard';
+
+// 2. Definiera de unika sökvägarna för detta rum
+const RECEPT_PATH = `rum/${currentRoom}/recept`;
+const SETTINGS_PATH = `rum/${currentRoom}/settings`;
+const MENU_DOC = "current-menu";
+
+// Gör dem globala så alla funktioner når dem
+window.currentRoom = currentRoom;
+        
         const SETTINGS_DOC = "basvaror";
         const CATEGORIES_DOC = "customCategories";
 
@@ -432,14 +442,13 @@ window.checkMateoClash = async () => {
 
         if(db) {
             // Listen to Dishes
-            onSnapshot(collection(db, COLLECTION_NAME), (s) => {
-                dishes = s.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateStatus(true); 
-                renderDishList();
-            }, (error) => {
-                console.error("Snapshot error:", error);
-                updateStatus(false);
-            });
+onSnapshot(collection(db, RECEPT_PATH), (snapshot) => {
+    window.dishes = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
+    renderDishList(); // Rita ut listan
+});
 
             // Listen to Basvaror
             onSnapshot(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), (docSnap) => {
@@ -530,7 +539,11 @@ window.checkMateoClash = async () => {
         
         async function saveBasvarorToCloud() { 
             if(db) await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), { items: [...basvarorSet] }); 
-        }
+        async function saveDish(newDish) {
+    // newDish är ett objekt med title, ingredients (array) och kategori
+    await addDoc(collection(db, RECEPT_PATH), newDish);
+}    
+        
 
         window.openImportModal = () => { document.getElementById('import-modal').classList.remove('hidden'); document.getElementById('import-url-input').focus(); };
         window.closeImportModal = () => { document.getElementById('import-modal').classList.add('hidden'); document.getElementById('import-url-input').value = ''; };
@@ -714,22 +727,28 @@ window.checkMateoClash = async () => {
             r.readAsText(input.files[0]); input.value = ''; 
         };
         
-        function renderDishList() {
-            const el = document.getElementById('all-dishes-list');
-            document.getElementById('total-count').innerText = dishes.length; el.innerHTML = '';
-            const cols = { 'kött': 'bg-red-100 text-red-800', 'kyckling': 'bg-yellow-100 text-yellow-800', 'fisk': 'bg-blue-100 text-blue-800', 'vegetarisk': 'bg-green-100 text-green-800', 'chark': 'bg-orange-100 text-orange-800', 'helg': 'bg-purple-100 text-purple-800' };
-            [...dishes].sort((a,b) => a.kategori.localeCompare(b.kategori) || a.namn.localeCompare(b.namn)).forEach(d => {
-                el.innerHTML += `
-                <div class="dish-item bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
-                    <div class="overflow-hidden pr-2"><div class="font-bold text-sm text-gray-800">${d.namn}</div><div class="text-xs text-gray-500 truncate">${d.ingredienser.join(', ')}</div></div>
-                    <div class="flex flex-col items-end gap-2 flex-shrink-0">
-                        <span class="text-[10px] uppercase px-2 py-1 rounded-full font-bold ${cols[d.kategori]||'bg-gray-100'}">${d.kategori}</span>
-                        <div class="flex gap-4 pt-1"><button onclick="window.editDish('${d.id}')" class="text-blue-500"><i class="fas fa-pen"></i></button><button onclick="window.deleteDish('${d.id}')" class="text-red-400"><i class="fas fa-trash"></i></button></div>
-                    </div>
-                </div>`;
-            });
-            window.filterDishes();
-        }
+function renderDishList() {
+    const container = document.getElementById('dish-list');
+    if (!container) return;
+
+    // Filtrera och sortera (vi använder en tom lista [] som fallback)
+    const list = (window.dishes || []).sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+    container.innerHTML = list.map(dish => {
+        // Om ingredients är en lista, gör om till "Lök, Tomat, Ost"
+        const ingText = Array.isArray(dish.ingredients) 
+            ? dish.ingredients.join(', ') 
+            : (dish.ingredients || "");
+
+        return `
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100">
+                <h3 class="font-bold text-gray-800">${dish.title || 'Namnlös'}</h3>
+                <p class="text-sm text-gray-500">${ingText}</p>
+                <div class="mt-2 text-[10px] font-bold uppercase text-emerald-600">${dish.kategori || 'övrigt'}</div>
+            </div>
+        `;
+    }).join('');
+}
 
         window.toggleLock = (day) => { if(window.lockedDays.has(day)) window.lockedDays.delete(day); else window.lockedDays.add(day); window.renderMenuUI(); };
 
@@ -1269,10 +1288,23 @@ function generateShoppingList(ing) {
                 btn.disabled = false;
             }
         };
+
+            window.generateNewRoom = () => {
+    const name = prompt("Vad ska ditt mat-rum heta? (t.ex. familjen-svensson)");
+    if (name) {
+        const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-');
+        const newUrl = window.location.origin + window.location.pathname + '?rum=' + cleanName;
+        
+        alert("Ditt rum är skapat! Spara denna länk eller skicka den till familjen:\n\n" + newUrl);
+        window.location.href = newUrl;
+    }
+};
+            
     </script>
 </body>
 
 </html>
+
 
 
 
