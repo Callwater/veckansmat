@@ -305,27 +305,31 @@
         try { app = initializeApp(firebaseConfig); db = getFirestore(app); } 
         catch (e) { console.error("Firebase Error", e); document.getElementById('connection-status').innerHTML = '<i class="fas fa-exclamation-circle text-red-300"></i> Init Error'; }
 
-// 1. Hämta rumsnamnet från URL:en (?rum=johan)
+// 1. Hämta rumsnamnet från URL (?rum=mitt-kok) eller använd 'standard'
 const urlParams = new URLSearchParams(window.location.search);
 const currentRoom = urlParams.get('rum') || 'standard';
 
-// 2. Skapa de nya sökvägarna
+// 2. Skapa sökvägen till det specifika rummet
 const RECEPT_PATH = `rum/${currentRoom}/recept`;
-const SETTINGS_PATH = `rum/${currentRoom}/settings`;
 
-// 3. Lyssna på recepten i det här specifika rummet
-onSnapshot(collection(db, RECEPT_PATH), (snapshot) => {
-    window.dishes = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
-    
-    // Logga i konsolen (F12) så vi ser om data kommer in
-    console.log("Data hämtad från:", RECEPT_PATH, window.dishes);
-    
-    // Kör renderings-funktionen
-    renderDishList();
-});
+// 3. Funktion för att spara ett recept
+window.addTestDish = async () => {
+    try {
+        const testDish = {
+            title: "Testrecept",
+            ingredients: ["Ingrediens 1", "Ingrediens 2"], // Vi sparar som Array direkt
+            kategori: "övrigt",
+            createdAt: new Date().toISOString()
+        };
+
+        // Vi sparar i den rums-specifika sökvägen
+        await addDoc(collection(db, RECEPT_PATH), testDish);
+        alert(`Sparat i rummet: ${currentRoom}!`);
+    } catch (error) {
+        console.error("Fel vid sparande:", error);
+        alert("Det gick inte att spara. Kolla Firebase-reglerna.");
+    }
+};
         const SETTINGS_DOC = "basvaror";
         const CATEGORIES_DOC = "customCategories";
 
@@ -1300,6 +1304,7 @@ function generateShoppingList(ing) {
 </body>
 
 </html>
+
 
 
 
