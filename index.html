@@ -365,18 +365,23 @@
 
         // --- RENDERING (REALTID) ---
 
-        function renderDishList() {
+function renderDishList() {
             const el = document.getElementById('all-dishes-list');
             if(!el) return;
             el.innerHTML = '';
 
-            const sorted = [...dishes].sort((a,b) => (a.title || "").localeCompare(b.title || ""));
+            // Sortera alfabetiskt (hanterar både title och namn för säkerhets skull)
+            const sorted = [...dishes].sort((a, b) => {
+                const nameA = a.title || a.namn || "";
+                const nameB = b.title || b.namn || "";
+                return nameA.localeCompare(nameB, 'sv');
+            });
 
             sorted.forEach(d => {
                 el.innerHTML += `
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center fade-in">
                     <div>
-                        <h3 class="font-bold text-gray-800">${d.title || 'Namnlös'}</h3>
+                        <h3 class="font-bold text-gray-800">${d.title || d.namn || 'Namnlös'}</h3>
                         <p class="text-[10px] text-gray-400 line-clamp-1">${(d.ingredients || []).join(', ')}</p>
                         <span class="text-[9px] uppercase font-bold text-blue-500 mt-1 block">${d.kategori || 'övrigt'}</span>
                     </div>
@@ -704,14 +709,22 @@ window.checkMateoClash = async () => {
             a.click();
         };
 
-        window.openSelectDishModal = (day) => {
+window.openSelectDishModal = (day) => {
             window.selectingForDay = day;
             document.getElementById('select-dish-modal').classList.remove('hidden');
             const list = document.getElementById('select-dish-list');
-            list.innerHTML = dishes.map(d => `
+            
+            // Sortera innan vi mappar ut HTML
+            const sorted = [...dishes].sort((a, b) => {
+                const nameA = a.title || a.namn || "";
+                const nameB = b.title || b.namn || "";
+                return nameA.localeCompare(nameB, 'sv');
+            });
+
+            list.innerHTML = sorted.map(d => `
                 <div onclick="window.confirmSelectDish('${d.id}')" class="p-3 bg-gray-50 rounded-xl border flex justify-between items-center cursor-pointer hover:bg-emerald-50">
-                    <span class="font-bold text-sm">${d.title}</span>
-                    <span class="text-[9px] uppercase font-bold text-gray-400">${d.kategori}</span>
+                    <span class="font-bold text-sm">${d.title || d.namn}</span>
+                    <span class="text-[9px] uppercase font-bold text-gray-400">${d.kategori || 'övrigt'}</span>
                 </div>
             `).join('');
         };
@@ -794,6 +807,7 @@ window.checkMateoClash = async () => {
 </body>
 
 </html>
+
 
 
 
