@@ -675,91 +675,98 @@ window.addBasvara = async () => {
 
         // Skolmat-krock-funktion (behåll din befintliga logik men koppla till nya UI:t)
 window.checkMateoClash = async () => {
-            const btn = document.getElementById('clash-btn');
-            const originalText = btn ? btn.innerHTML : '';
-            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Byter proxy...'; btn.disabled = true; }
-            
+    const btn = document.getElementById('clash-btn');
+    const originalText = btn ? btn.innerHTML : '';
+    if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Letar öppen tunnel...'; btn.disabled = true; }
+    
+    try {
+        window.detectedClashes = {}; 
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        
+        let monday = new Date(today);
+        if (dayOfWeek === 6) monday.setDate(today.getDate() + 2);
+        else if (dayOfWeek === 0) monday.setDate(today.getDate() + 1);
+        else monday.setDate(today.getDate() - (dayOfWeek - 1));
+        
+        const getYMD = (d) => d.toISOString().split('T')[0];
+        const targetUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${getYMD(monday)}&to=${getYMD(new Date(monday.getTime() + 4 * 86400000))}`;
+
+        // Lista på olika proxys att testa om en dör
+        const proxies = [
+            { url: `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, type: 'allorigins' },
+            { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, type: 'direct' },
+            { url: `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, type: 'direct' }
+        ];
+
+        let rawData = null;
+
+        // Loopa igenom proxys tills vi får napp
+        for (const p of proxies) {
             try {
-                window.detectedClashes = {}; 
-                const today = new Date();
-                const dayOfWeek = today.getDay();
+                const res = await fetch(p.url);
+                if (res.ok) {
+                    const data = await res.json();
+                    // AllOrigins skickar data i "contents", de andra skickar direkt
+                    rawData = p.type === 'allorigins' ? JSON.parse(data.contents) : data;
+                    console.log("Success med proxy:", p.url);
+                    break; 
+                }
+            } catch (e) { console.warn("Proxy misslyckades, testar nästa..."); }
+        }
+
+        if (!rawData) throw new Error("Inga proxys fungerar just nu. För många anrop?");
+
+        const meals = rawData.data || rawData;
+        const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
+        let krockCount = 0;
+
+        const KROCK_GRUPPER = [
+            { namn: 'Fisk', ord: ['fisk', 'lax', 'torsk', 'sej', 'spätta', 'pinnar', 'panerad'] },
+            { namn: 'Pasta', ord: ['pasta', 'spaghetti', 'makaroner', 'lasagne', 'fusilli', 'penne'] },
+            { namn: 'Färs', ord: ['köttbullar', 'biffar', 'järpar', 'färs', 'burgare'] },
+            { namn: 'Kyckling', ord: ['kyckling', 'kalkon', 'nuggets'] },
+            { namn: 'Korv', ord: ['korv', 'falukorv', 'chorizo', 'prinskorv'] },
+            { namn: 'Taco', ord: ['taco', 'tortilla', 'nacho', 'enchilada', 'fajita'] }
+        ];
+
+        vardagar.forEach((dag, index) => {
+            const dateStr = new Date(monday.getTime() + (index * 86400000)).toISOString().split('T')[0];
+            const dayData = Array.isArray(meals) ? meals.find(d => String(d.date || "").includes(dateStr)) : null;
+            const minRatt = window.currentMenu[dag];
+
+            if (minRatt && dayData && dayData.meals) {
+                const minRattText = (minRatt.namn || "").toLowerCase();
                 
-                let monday = new Date(today);
-                if (dayOfWeek === 6) monday.setDate(today.getDate() + 2);
-                else if (dayOfWeek === 0) monday.setDate(today.getDate() + 1);
-                else monday.setDate(today.getDate() - (dayOfWeek - 1));
-                
-                const getYMD = (d) => d.toISOString().split('T')[0];
-                const fromDate = getYMD(monday);
-                const friday = new Date(monday); 
-                friday.setDate(monday.getDate() + 4);
-                const toDate = getYMD(friday);
+                dayData.meals.forEach(m => {
+                    // FILTRET: Ignorera Lunch 2 (Vego)
+                    if (m.type === "Lunch 2") return; 
 
-                // --- NY PROXY (AllOrigins) ---
-                const targetUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${fromDate}&to=${toDate}`;
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-
-                const res = await fetch(proxyUrl);
-                if (!res.ok) throw new Error("Proxyn svarar inte.");
-                
-                const responseData = await res.json();
-                // AllOrigins packar in svaret i ett fält som heter "contents"
-                const json = JSON.parse(responseData.contents);
-                const rawMeals = json.data || json;
-                const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
-                let krockCount = 0;
-
-                const KROCK_GRUPPER = [
-                    { namn: 'Fisk', ord: ['fisk', 'lax', 'torsk', 'sej', 'spätta', 'pinnar', 'panerad'] },
-                    { namn: 'Pasta', ord: ['pasta', 'spaghetti', 'makaroner', 'lasagne', 'fusilli', 'penne'] },
-                    { namn: 'Färs', ord: ['köttbullar', 'biffar', 'järpar', 'färs', 'burgare'] },
-                    { namn: 'Kyckling', ord: ['kyckling', 'kalkon', 'nuggets'] },
-                    { namn: 'Korv', ord: ['korv', 'falukorv', 'chorizo', 'prinskorv'] },
-                    { namn: 'Taco', ord: ['taco', 'tortilla', 'nacho', 'enchilada', 'fajita'] }
-                ];
-
-                vardagar.forEach((dag, index) => {
-                    const dateStr = new Date(monday.getTime() + (index * 86400000)).toISOString().split('T')[0];
-                    const dayData = Array.isArray(rawMeals) ? rawMeals.find(d => String(d.date || "").includes(dateStr)) : null;
-                    const minRatt = window.currentMenu[dag];
-
-                    if (minRatt && dayData && dayData.meals) {
-                        const minRattText = (minRatt.namn || "").toLowerCase();
-                        
-                        dayData.meals.forEach(m => {
-                            // Skippa Lunch 2 (vegetariskt)
-                            if (m.type === "Lunch 2") return; 
-
-                            const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
-                            
-                            let ärKrock = minRattText.split(' ').some(ord => ord.length > 3 && skolmatText.includes(ord));
-                            
-                            if (!ärKrock) {
-                                KROCK_GRUPPER.forEach(grupp => {
-                                    if (grupp.ord.some(o => minRattText.includes(o)) && grupp.ord.some(o => skolmatText.includes(o))) {
-                                        ärKrock = true;
-                                    }
-                                });
-                            }
-
-                            if (ärKrock) {
-                                window.detectedClashes[dag] = true;
-                                krockCount++;
+                    const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
+                    let ärKrock = minRattText.split(' ').some(ord => ord.length > 3 && skolmatText.includes(ord));
+                    
+                    if (!ärKrock) {
+                        KROCK_GRUPPER.forEach(grupp => {
+                            if (grupp.ord.some(o => minRattText.includes(o)) && grupp.ord.some(o => skolmatText.includes(o))) {
+                                ärKrock = true;
                             }
                         });
                     }
+                    if (ärKrock) { window.detectedClashes[dag] = true; krockCount++; }
                 });
-
-                window.renderMenuUI();
-                showToast(krockCount > 0 ? `⚠️ Hittade ${krockCount} krockar!` : "✅ Inga krockar hittades.");
-
-            } catch (error) {
-                console.error("Krock-koll fel:", error);
-                showToast("Kunde inte hämta skolmat (Proxy-problem).");
-            } finally {
-                if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
             }
-        };
+        });
+
+        window.renderMenuUI();
+        showToast(krockCount > 0 ? `⚠️ Hittade ${krockCount} krockar!` : "✅ Inga krockar hittades.");
+
+    } catch (error) {
+        console.error(error);
+        showToast("Skolmaten pausad (för många anrop). Vänta en stund!");
+    } finally {
+        if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+    }
+};
 
         window.exportDishes = () => {
             const data = JSON.stringify(dishes, null, 2);
@@ -868,6 +875,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
