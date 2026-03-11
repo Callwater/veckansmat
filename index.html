@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#059669">
+    <title>Gemensam Veckomeny</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-out-item { opacity: 0; height: 0; margin: 0; padding: 0; transform: translateX(20px); transition: all 0.5s ease-in-out; }
+        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #059669; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .drag-card { cursor: grab; touch-action: none; user-select: none; transition: transform 0.2s, box-shadow 0.2s; }
+        .drag-card:active { cursor: grabbing; }
+        .drag-over { background-color: #ecfdf5 !important; border: 2px dashed #059669 !important; transform: scale(1.02); z-index: 10; }
+        .dragging { opacity: 0.4; }
+        .locked-card { border-left-color: #ef4444 !important; background-color: #fef2f2; }
+        .locked-icon { color: #ef4444; }
+        .chip { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 9999px; background-color: #e5e7eb; font-size: 0.75rem; margin: 2px; }
+        .chip button { margin-left: 4px; color: #6b7280; }
+        @media print {
+            header, #tab-nav, .no-print, #toast, #connection-status, button, input, select, textarea, #data-settings, #hidden-items-info, .fa-pen, .fa-trash, .print-hidden, #school-check-container, .edit-cat-icon { display: none !important; }
+            body, main { height: auto !important; overflow: visible !important; background-color: white !important; color: black !important; padding: 0 !important; margin: 0 !important; display: block !important; }
+            #print-header { display: block !important; text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #059669; }
+            .w-full.max-w-md { max-width: 100% !important; width: 100% !important; }
+            #menu-result > div { border: 1px solid #ddd !important; box-shadow: none !important; page-break-inside: avoid; margin-bottom: 10px !important; background: white !important; }
+            #shopping-list-container { border: 1px solid #ddd !important; background: white !important; page-break-inside: avoid; box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 h-screen flex flex-col overflow-hidden">
+
+    <div id="print-header" class="hidden text-2xl font-bold pt-4">VECKANS MATSEDEL</div>
+
+    <header class="bg-emerald-600 text-white p-4 shadow-md flex-none z-20 flex justify-between items-center no-print">
+        <h1 class="text-lg font-bold flex items-center"><i class="fas fa-cloud mr-2"></i><span id="header-title">Veckomeny</span></h1>
+        <div id="connection-status" class="text-xs bg-emerald-700 px-2 py-1 rounded flex items-center gap-1">
+            <div class="loader"></div> Laddar...
+        </div>
+    </header>
+
+    <div id="tab-nav" class="bg-white shadow z-10 flex-none no-print">
+        <div class="flex max-w-md mx-auto">
+            <button onclick="window.showTab('menu')" id="tab-menu" class="flex-1 py-3 text-center text-sm bg-emerald-50 font-semibold border-b-4 border-emerald-600 text-emerald-700 transition"><i class="fas fa-calendar-alt block mb-1 text-lg"></i> Meny</button>
+            <button onclick="window.showTab('add')" id="tab-add" class="flex-1 py-3 text-center text-sm text-gray-500 border-b-4 border-transparent hover:bg-gray-50 transition"><i class="fas fa-plus-circle block mb-1 text-lg"></i> Hantera</button>
+            <button onclick="window.showTab('list')" id="tab-list" class="flex-1 py-3 text-center text-sm text-gray-500 border-b-4 border-transparent hover:bg-gray-50 transition"><i class="fas fa-list block mb-1 text-lg"></i> Alla</button>
+            <button onclick="window.showTab('settings')" id="tab-settings" class="flex-1 py-3 text-center text-sm text-gray-500 border-b-4 border-transparent hover:bg-gray-50 transition"><i class="fas fa-cog block mb-1 text-lg"></i> Inställn.</button>
+        </div>
+    </div>
+
+    <main class="flex-grow overflow-y-auto p-4 pb-24 bg-gray-100 w-full flex justify-center">
+        <div class="w-full max-w-md">
+
+            <div id="view-menu" class="fade-in">
+                <div id="generate-container" class="bg-white p-5 rounded-xl shadow-sm text-center mb-6 no-print">
+                    <p class="text-gray-600 mb-4 text-sm">Slumpa fram en meny från molnet.</p>
+                    <button onclick="window.generateMenu()" class="w-full bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow hover:bg-emerald-700 transition transform active:scale-95">
+                        <i class="fas fa-magic mr-2"></i> Slumpa Veckomeny
+                    </button>
+                    
+                    <div id="school-check-container" class="border-t pt-4 mt-4">
+                        <button id="clash-btn" onclick="window.checkMateoClash()" class="w-full bg-yellow-100 text-yellow-800 font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-yellow-200 transition border border-yellow-300">
+                            <i class="fas fa-exclamation-triangle mr-2"></i> Jämför med Skolmaten
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="print-btn-container" class="hidden mb-4 flex justify-end items-center gap-3 no-print bg-white p-2 rounded-lg shadow-sm">
+                    <button onclick="window.print()" class="text-sm bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-100 font-semibold transition border border-emerald-200">
+                        <i class="fas fa-print mr-1"></i> Skriv ut
+                    </button>
+                </div>
+
+                <div id="menu-result" class="hidden space-y-4"></div>
+                <p id="drag-hint" class="hidden text-center text-xs text-gray-400 mt-2 no-print italic">Dra och släpp för att flytta dagar.</p>
+
+                <div id="shopping-list-container" class="hidden mt-8 bg-yellow-50 border border-yellow-200 p-4 rounded-xl shadow-sm relative mb-8">
+                    <h3 class="font-bold text-lg mb-2 text-yellow-800 border-b border-yellow-200 pb-1">Handlingslista</h3>
+                    <button onclick="window.copyShoppingList()" class="absolute top-4 right-4 text-yellow-800 bg-yellow-200 px-3 py-1 rounded-lg text-xs font-semibold no-print">Kopiera</button>
+                    <div id="hidden-items-info" class="hidden bg-yellow-100 text-yellow-800 text-xs p-2 rounded mb-2 flex justify-between items-center cursor-pointer no-print" onclick="window.showHiddenItems()">
+                        <span><i class="fas fa-check-circle mr-1"></i> <span id="hidden-count">0</span> varor avbockade</span> <span class="underline font-bold">Visa</span>
+                    </div>
+                    <div id="shopping-list-content" class="text-sm text-gray-700 space-y-4 mt-3"></div>
+                </div>
+            </div>
+
+            <div id="view-add" class="hidden fade-in">
+                <div class="bg-white p-5 rounded-xl shadow-sm relative mb-6">
+                    <div class="flex justify-end gap-2 mb-4">
+                        <button onclick="window.openImportModal()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded border border-indigo-200 font-medium">Importera från URL</button>
+                        <button onclick="window.openBasvarorModal()" class="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded border border-gray-300 font-medium">Basvaror</button>
+                    </div>
+                    <h2 id="form-title" class="text-lg font-bold mb-4">Lägg till ny rätt</h2>
+                    <input type="text" id="new-name" class="w-full p-3 border rounded-lg mb-4 outline-none focus:ring-1 focus:ring-emerald-500" placeholder="Namn på rätten">
+                    <select id="new-category" class="w-full p-3 border rounded-lg mb-4 bg-white outline-none">
+                        <option value="kött">Kött</option><option value="kyckling">Kyckling</option><option value="chark">Chark/Korv</option>
+                        <option value="fisk">Fisk</option><option value="vegetarisk">Vegetariskt</option><option value="helg">Helg/Lyx</option>
+                    </select>
+                    <textarea id="new-ingredients" class="w-full p-3 border rounded-lg mb-4 h-28 outline-none focus:ring-1 focus:ring-emerald-500" placeholder="Ingredienser (kommatecken emellan)"></textarea>
+                    <button id="save-btn" onclick="window.handleSaveDish()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow hover:bg-blue-700 transition">Spara till Molnet</button>
+                    <button id="cancel-edit-btn" onclick="window.resetForm()" class="hidden w-full mt-2 text-sm text-red-500 font-semibold">Avbryt</button>
+                </div>
+            </div>
+
+            <div id="view-list" class="hidden fade-in">
+                <div class="bg-white p-4 rounded-xl shadow-sm mb-4 sticky top-0 z-10 border-b no-print">
+                    <input type="text" id="search-input" onkeyup="window.filterDishes()" placeholder="Sök maträtt..." class="w-full p-2 border bg-gray-50 rounded-lg text-sm outline-none">
+                </div>
+                <div id="all-dishes-list" class="space-y-3 pb-8"></div>
+            </div>
+
+            <div id="view-settings" class="hidden fade-in">
+                <h2 class="text-xl font-bold mb-4 text-gray-700">Inställningar</h2>
+                <div class="bg-white p-5 rounded-xl shadow-sm mb-6">
+                    <p class="text-xs text-gray-400 mb-4 text-center">Rum: <span id="room-id-display" class="font-bold text-emerald-600">standard</span></p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="window.exportDishes()" class="bg-gray-100 text-gray-700 py-3 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">Exportera backup</button>
+                        <button onclick="document.getElementById('import-file').click()" class="bg-gray-100 text-gray-700 py-3 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">Importera backup</button>
+                    </div>
+                    <input type="file" id="import-file" class="hidden" accept=".json" onchange="window.importDishes(this)">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="basvaror-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="text-lg font-bold">Gemensamma Basvaror</h3>
+                <button onclick="window.closeBasvarorModal()" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="new-basvara" class="flex-grow p-2 border rounded text-sm outline-none" placeholder="Ny basvara..." onkeydown="if(event.key==='Enter') window.addBasvara()">
+                <button onclick="window.addBasvara()" class="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="basvaror-list" class="flex-grow overflow-y-auto flex flex-wrap gap-1 bg-gray-50 p-2 rounded"></div>
+        </div>
+    </div>
+
+    <div id="category-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl">
+            <h3 class="text-lg font-bold mb-2" id="cat-edit-item-name">Ändra kategori</h3>
+            <select id="cat-edit-select" class="w-full p-3 border rounded-lg mb-6 bg-white outline-none"></select>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('category-modal').classList.add('hidden')" class="flex-1 py-3 text-sm text-gray-400">Avbryt</button>
+                <button onclick="window.saveCategoryChange()" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg">Spara</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="select-dish-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold" id="select-dish-title">Välj rätt</h3>
+                <button onclick="window.closeSelectDishModal()" class="text-gray-500"><i class="fas fa-times"></i></button>
+            </div>
+            <input type="text" id="select-modal-search" onkeyup="window.filterSelectModal()" placeholder="Sök..." class="w-full p-2 border rounded-lg text-sm mb-3 outline-none">
+            <div id="select-dish-list" class="flex-grow overflow-y-auto space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="import-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl">
+            <h3 class="text-lg font-bold mb-4">Importera Recept</h3>
+            <input type="url" id="import-url-input" class="w-full p-3 border rounded-lg mb-4 outline-none" placeholder="https://...">
+            <div class="flex justify-end gap-2">
+                <button onclick="window.closeImportModal()" class="px-4 py-2 text-sm text-gray-400">Avbryt</button>
+                <button id="do-import-btn" onclick="window.executeImport()" class="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700">Hämta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 text-sm font-medium"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4tVwDuLbDIRTt6O9gnghpJRBOXjD6fI0",
+            authDomain: "veckansmat-3ed6b.firebaseapp.com",
+            projectId: "veckansmat-3ed6b",
+            storageBucket: "veckansmat-3ed6b.firebasestorage.app",
+            messagingSenderId: "199515297394",
+            appId: "1:199515297394:web:d071866da9add8338954eb",
+            measurementId: "G-01R2YNNJ8V"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- RUMS-LOGIK ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentRoom = urlParams.get('rum') || 'standard';
+        
+        // Uppdatera UI
+        document.getElementById('header-title').innerText = `Veckomeny: ${currentRoom}`;
+        document.getElementById('room-id-display').innerText = currentRoom;
+
+        // Sökvägar
+        const RECEPT_PATH = `rum/${currentRoom}/recept`;
+        const MENU_PATH = `rum/${currentRoom}/settings/current-menu`;
+        const GLOBAL_SETTINGS = "globala_installningar";
+        const BASVAROR_DOC = "basvaror";
+        const CATEGORIES_DOC = "kategorier";
+
+        let dishes = [];
+        let basvarorSet = new Set();
+        let customCategories = {};
+        let editingId = null;
+        window.currentMenu = {};
+        window.lockedDays = new Set();
+        window.detectedClashes = {};
+
+        // --- FIREBASE LYSSNARE ---
+
+        // Recept för detta rum
+        onSnapshot(collection(db, RECEPT_PATH), (s) => {
+            dishes = s.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data(),
+                namn: doc.data().title || doc.data().namn,
+                ingredienser: Array.isArray(doc.data().ingredients) ? doc.data().ingredients : 
+                             (doc.data().ingredienser ? (Array.isArray(doc.data().ingredienser) ? doc.data().ingredienser : doc.data().ingredienser.split(',').map(i=>i.trim())) : [])
+            }));
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-wifi text-green-300"></i> Online';
+            renderDishList();
+        });
+
+        // Veckomeny för detta rum
+        onSnapshot(doc(db, MENU_PATH.split('/settings/')[0], 'settings', 'current-menu'), (docSnap) => {
+            if (docSnap.exists()) {
+                window.currentMenu = docSnap.data();
+                window.renderMenuUI();
+            }
+        });
+
+        // Globala Basvaror (Gemensamt för alla!)
+        onSnapshot(doc(db, GLOBAL_SETTINGS, BASVAROR_DOC), (docSnap) => {
+            if (docSnap.exists() && docSnap.data().items) {
+                basvarorSet = new Set(docSnap.data().items.map(i => i.toLowerCase()));
+                window.renderBasvarorList();
+            }
+        });
+
+        // Globala Kategorier (Gemensamt för alla!)
+        onSnapshot(doc(db, GLOBAL_SETTINGS, CATEGORIES_DOC), (docSnap) => {
+            if (docSnap.exists()) {
+                customCategories = docSnap.data().map || {};
+            }
+        });
+
+        // --- APP FUNKTIONER ---
+
+        window.handleSaveDish = async () => {
+            const name = document.getElementById('new-name').value.trim();
+            const cat = document.getElementById('new-category').value;
+            const ingStr = document.getElementById('new-ingredients').value.trim();
+            if (!name) return showToast("Fyll i namn!");
+
+            const ings = ingStr.split(',').map(i => i.trim()).filter(i => i !== "");
+            try {
+                if(editingId) {
+                    await updateDoc(doc(db, RECEPT_PATH, editingId), { title: name, ingredients: ings, kategori: cat });
+                    showToast("Ändrat!");
+                } else {
+                    await addDoc(collection(db, RECEPT_PATH), { title: name, ingredients: ings, kategori: cat });
+                    showToast("Sparat!");
+                }
+                window.resetForm();
+            } catch(e) { console.error(e); }
+        };
+
+        window.deleteDish = async (id) => {
+            if(confirm("Ta bort?")) await deleteDoc(doc(db, RECEPT_PATH, id));
+        };
+
+        window.renderDishList = () => {
+            const el = document.getElementById('all-dishes-list');
+            if(!el) return;
+            const sorted = [...dishes].sort((a,b) => a.namn.localeCompare(b.namn, 'sv'));
+            el.innerHTML = sorted.map(d => `
+                <div class="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-sm">${d.namn}</div>
+                        <div class="text-[10px] text-gray-400 line-clamp-1">${d.ingredienser.join(', ')}</div>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="window.editDish('${d.id}')" class="text-blue-500"><i class="fas fa-pen"></i></button>
+                        <button onclick="window.deleteDish('${d.id}')" class="text-red-400"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>`).join('');
+        };
+
+        window.generateMenu = async () => {
+            const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
+            const toFill = days.filter(d => !window.lockedDays.has(d));
+            if(dishes.length < toFill.length) return showToast("Fler recept behövs!");
+
+            let pool = [...dishes].sort(() => 0.5 - Math.random());
+            const newMenu = { ...window.currentMenu };
+            toFill.forEach(day => {
+                const pick = pool.pop();
+                if(pick) newMenu[day] = { id: pick.id, namn: pick.namn, ingredienser: pick.ingredienser, kategori: pick.kategori };
+            });
+
+            window.currentMenu = newMenu;
+            await setDoc(doc(db, MENU_PATH.split('/settings/')[0], 'settings', 'current-menu'), window.currentMenu);
+            window.renderMenuUI();
+        };
+
+        window.renderMenuUI = () => {
+            const resEl = document.getElementById('menu-result');
+            if(!resEl) return;
+            resEl.innerHTML = ''; resEl.classList.remove('hidden');
+            const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
+            
+            days.forEach(day => {
+                const d = window.currentMenu[day];
+                const isLocked = window.lockedDays.has(day);
+                const hasClash = window.detectedClashes[day];
+                const lockIcon = isLocked ? 'fa-lock text-red-500' : 'fa-lock-open text-gray-200';
+
+                resEl.innerHTML += `
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${isLocked ? 'border-red-400' : 'border-emerald-500'} relative">
+                    ${hasClash ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-bold shadow animate-pulse z-10 whitespace-nowrap">SKOLMAT: ${hasClash}</div>` : ''}
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-[10px] font-black uppercase text-gray-400">${day}</span>
+                        <div class="flex gap-3 no-print">
+                            <button onclick="window.toggleLock('${day}')" class="p-1"><i class="fas ${lockIcon}"></i></button>
+                            <button onclick="window.openSelectDishModal('${day}')" class="text-gray-200 hover:text-emerald-500"><i class="fas fa-exchange-alt"></i></button>
+                        </div>
+                    </div>
+                    <div class="font-bold text-gray-800">${d ? d.namn : '<span class="text-gray-200">Inget valt</span>'}</div>
+                    <div class="text-[11px] text-gray-400 mt-1">${d ? d.ingredienser.join(', ') : ''}</div>
+                </div>`;
+            });
+
+            if(Object.keys(window.currentMenu).length > 0) {
+                document.getElementById('shopping-list-container').classList.remove('hidden');
+                document.getElementById('print-btn-container').classList.remove('hidden');
+                window.generateShoppingList();
+            }
+        };
+
+        // --- SKOLMATSKOLL (PROXYSÄKRAD) ---
+        window.checkMateoClash = async () => {
+            const btn = document.getElementById('clash-btn');
+            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kollar...'; btn.disabled = true; }
+            try {
+                window.detectedClashes = {};
+                const today = new Date();
+                let mon = new Date(today);
+                mon.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+                
+                const from = mon.toISOString().split('T')[0];
+                const to = new Date(mon.getTime() + 4 * 86400000).toISOString().split('T')[0];
+                const target = `https://meny-api.mateo.se/api/v1/days/565?from=${from}&to=${to}`;
+                
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(target)}`);
+                const json = JSON.parse((await res.json()).contents);
+                const meals = json.data || json;
+                
+                const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
+                const GRUPPER = [{n:'Fisk', o:['fisk','lax','pinnar']},{n:'Pasta', o:['pasta','lasagne']},{n:'Färs', o:['köttbullar','biff','burgare']},{n:'Taco', o:['taco','tortilla','nacho']}];
+
+                vardagar.forEach((dag, i) => {
+                    const min = window.currentMenu[dag];
+                    const skol = Array.isArray(meals) ? meals.find(d => String(d.date).includes(new Date(mon.getTime()+i*86400000).toISOString().split('T')[0])) : null;
+                    if(min && skol && skol.meals) {
+                        skol.meals.forEach(m => {
+                            if(m.type === "Lunch 2") return;
+                            const t = (m.name + ' ' + (m.description||'')).toLowerCase();
+                            const minT = min.namn.toLowerCase();
+                            let k = minT.split(' ').some(o => o.length > 3 && t.includes(o));
+                            if(!k) GRUPPER.forEach(g => { if(g.o.some(o=>minT.includes(o)) && g.o.some(o=>t.includes(o))) k = true; });
+                            if(k) window.detectedClashes[dag] = m.name;
+                        });
+                    }
+                });
+                window.renderMenuUI();
+                showToast("Skolmat kollad!");
+            } catch(e) { console.error(e); showToast("Kunde inte hämta skolmat."); }
+            finally { if(btn) { btn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> Jämför med Skolmaten'; btn.disabled = false; } }
+        };
+
+        // --- SHOPPING LIST & KATEGORIER ---
+        window.generateShoppingList = () => {
+            const cont = document.getElementById('shopping-list-content');
+            let ings = [];
+            Object.values(window.currentMenu).forEach(d => { if(d && d.ingredienser) ings = ings.concat(d.ingredienser); });
+            const unique = [...new Set(ings.map(i => i.toLowerCase().trim()))];
+            
+            const cats = {}; const bas = [];
+            unique.forEach(i => {
+                if(basvarorSet.has(i)) bas.push(i);
+                else {
+                    const c = categorizeIngredient(i);
+                    if(!cats[c]) cats[c] = [];
+                    cats[c].push(i);
+                }
+            });
+
+            cont.innerHTML = '';
+            Object.keys(cats).sort().forEach(cat => {
+                cont.innerHTML += `<div class="text-[10px] font-bold text-emerald-700 uppercase mt-4 mb-1">${cat}</div>`;
+                cats[cat].sort().forEach(item => {
+                    cont.innerHTML += `
+                    <div class="flex items-center gap-3 py-1 border-b border-yellow-100">
+                        <input type="checkbox" onchange="window.handleCheck(this)" class="w-5 h-5 rounded">
+                        <span class="capitalize cursor-pointer hover:underline" onclick="window.openCategoryModal('${item}')">${item}</span>
+                    </div>`;
+                });
+            });
+            if(bas.length) cont.innerHTML += `<div class="text-[10px] font-bold text-gray-400 uppercase mt-4">Basvaror</div><div class="text-xs text-gray-400 capitalize">${bas.sort().join(', ')}</div>`;
+        };
+
+        const CATEGORY_KEYWORDS = { 'Grönt': ['tomat','gurka','lök','sallad','kål','broccoli','morot','vitlök','citron'], 'Mejeri': ['mjölk','grädde','ost','ägg','smör','fraiche','yoghurt','halloumi'], 'Kött/Fisk': ['lax','torsk','färs','kyckling','bacon','skinka','korv','falukorv'], 'Skafferi': ['pasta','ris','mjöl','socker','krossade','olja','vinäger','buljong','soja','taco','bröd'] };
+        function categorizeIngredient(i) {
+            if(customCategories[i]) return customCategories[i];
+            for (const [c, k] of Object.entries(CATEGORY_KEYWORDS)) { if(k.some(key => i.includes(key))) return c; }
+            return 'Övrigt';
+        }
+
+        window.openCategoryModal = (i) => { window.itemToEdit = i; document.getElementById('cat-edit-item-name').innerText = i; const s = document.getElementById('cat-edit-select'); s.innerHTML = [...new Set([...Object.keys(CATEGORY_KEYWORDS), ...Object.values(customCategories), 'Övrigt'])].sort().map(c => `<option value="${c}" ${categorizeIngredient(i)===c?'selected':''}>${c}</option>`).join(''); document.getElementById('category-modal').classList.remove('hidden'); };
+        window.saveCategoryChange = async () => { customCategories[window.itemToEdit] = document.getElementById('cat-edit-select').value; await setDoc(doc(db, GLOBAL_SETTINGS, CATEGORIES_DOC), { map: customCategories }); document.getElementById('category-modal').classList.add('hidden'); window.generateShoppingList(); };
+
+        // --- ÖVRIGA HJÄLPFUNKTIONER ---
+        window.showTab = (t) => { ['menu','add','list','settings'].forEach(x => { document.getElementById('view-'+x).classList.add('hidden'); document.getElementById('tab-'+x).className = "flex-1 py-3 text-center text-sm text-gray-500 border-b-4 border-transparent transition"; }); document.getElementById('view-'+t).classList.remove('hidden'); document.getElementById('tab-'+t).className = "flex-1 py-3 text-center text-sm bg-emerald-50 font-semibold border-b-4 border-emerald-600 text-emerald-700 transition"; };
+        window.toggleLock = (d) => { if(window.lockedDays.has(d)) window.lockedDays.delete(d); else window.lockedDays.add(d); window.renderMenuUI(); };
+        window.editDish = (id) => { const d = dishes.find(x => x.id === id); if(!d) return; editingId = id; document.getElementById('new-name').value = d.namn; document.getElementById('new-category').value = d.kategori || 'kött'; document.getElementById('new-ingredients').value = d.ingredienser.join(', '); document.getElementById('form-title').innerText = "Redigera"; document.getElementById('save-btn').innerText = "Spara ändring"; document.getElementById('cancel-edit-btn').classList.remove('hidden'); window.showTab('add'); };
+        window.resetForm = () => { editingId = null; document.getElementById('new-name').value = ''; document.getElementById('new-ingredients').value = ''; document.getElementById('form-title').innerText = "Ny maträtt"; document.getElementById('save-btn').innerText = "Spara till Molnet"; document.getElementById('cancel-edit-btn').classList.add('hidden'); };
+        function showToast(m) { const t=document.getElementById('toast'); t.innerText=m; t.classList.remove('opacity-0'); setTimeout(()=>t.classList.add('opacity-0'), 2500); }
+        window.filterDishes = () => { const t = document.getElementById('search-input').value.toLowerCase(); document.querySelectorAll('#all-dishes-list > div').forEach(i => i.style.display = i.innerText.toLowerCase().includes(t) ? 'flex' : 'none'); };
+        window.openBasvarorModal = () => document.getElementById('basvaror-modal').classList.remove('hidden');
+        window.closeBasvarorModal = () => document.getElementById('basvaror-modal').classList.add('hidden');
+        window.renderBasvarorList = () => { document.getElementById('basvaror-list').innerHTML = [...basvarorSet].sort().map(v => `<div class="chip capitalize">${v}<button onclick="window.removeBasvara('${v}')">&times;</button></div>`).join(''); };
+        window.addBasvara = async () => { const v = document.getElementById('new-basvara').value.trim().toLowerCase(); if(v) { basvarorSet.add(v); await setDoc(doc(db, GLOBAL_SETTINGS, BASVAROR_DOC), { items: [...basvarorSet] }); document.getElementById('new-basvara').value = ''; } };
+        window.removeBasvara = async (v) => { basvarorSet.delete(v); await setDoc(doc(db, GLOBAL_SETTINGS, BASVAROR_DOC), { items: [...basvarorSet] }); };
+        window.showTab('menu');
+
+    </script>
+</body>
+</html>
