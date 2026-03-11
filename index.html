@@ -677,14 +677,13 @@ window.addBasvara = async () => {
 window.checkMateoClash = async () => {
             const btn = document.getElementById('clash-btn');
             const originalText = btn ? btn.innerHTML : '';
-            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...'; btn.disabled = true; }
+            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Byter proxy...'; btn.disabled = true; }
             
             try {
                 window.detectedClashes = {}; 
                 const today = new Date();
                 const dayOfWeek = today.getDay();
                 
-                // Hitta måndag i aktuell vecka
                 let monday = new Date(today);
                 if (dayOfWeek === 6) monday.setDate(today.getDate() + 2);
                 else if (dayOfWeek === 0) monday.setDate(today.getDate() + 1);
@@ -696,8 +695,16 @@ window.checkMateoClash = async () => {
                 friday.setDate(monday.getDate() + 4);
                 const toDate = getYMD(friday);
 
-                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://meny-api.mateo.se/api/v1/days/565?from=${fromDate}&to=${toDate}`)}`);
-                const json = await res.json();
+                // --- NY PROXY (AllOrigins) ---
+                const targetUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${fromDate}&to=${toDate}`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+
+                const res = await fetch(proxyUrl);
+                if (!res.ok) throw new Error("Proxyn svarar inte.");
+                
+                const responseData = await res.json();
+                // AllOrigins packar in svaret i ett fält som heter "contents"
+                const json = JSON.parse(responseData.contents);
                 const rawMeals = json.data || json;
                 const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
                 let krockCount = 0;
@@ -708,7 +715,7 @@ window.checkMateoClash = async () => {
                     { namn: 'Färs', ord: ['köttbullar', 'biffar', 'järpar', 'färs', 'burgare'] },
                     { namn: 'Kyckling', ord: ['kyckling', 'kalkon', 'nuggets'] },
                     { namn: 'Korv', ord: ['korv', 'falukorv', 'chorizo', 'prinskorv'] },
-                    { namn: 'Taco', ord: ['taco', 'tortilla', 'nacho', 'enchilada', 'fajita', 'tex-mex'] }
+                    { namn: 'Taco', ord: ['taco', 'tortilla', 'nacho', 'enchilada', 'fajita'] }
                 ];
 
                 vardagar.forEach((dag, index) => {
@@ -720,20 +727,18 @@ window.checkMateoClash = async () => {
                         const minRattText = (minRatt.namn || "").toLowerCase();
                         
                         dayData.meals.forEach(m => {
-                            // --- HÄR FILTRERAR VI BORT LUNCH 2 (Vegetariskt) ---
+                            // Skippa Lunch 2 (vegetariskt)
                             if (m.type === "Lunch 2") return; 
 
                             const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
                             
-                            // 1. Kolla ordmatchning
                             let ärKrock = minRattText.split(' ').some(ord => ord.length > 3 && skolmatText.includes(ord));
                             
-                            // 2. Kolla krockgrupper
                             if (!ärKrock) {
                                 KROCK_GRUPPER.forEach(grupp => {
-                                    const minHarOrd = grupp.ord.some(o => minRattText.includes(o));
-                                    const skolanHarOrd = grupp.ord.some(o => skolmatText.includes(o));
-                                    if (minHarOrd && skolanHarOrd) ärKrock = true;
+                                    if (grupp.ord.some(o => minRattText.includes(o)) && grupp.ord.some(o => skolmatText.includes(o))) {
+                                        ärKrock = true;
+                                    }
                                 });
                             }
 
@@ -746,11 +751,11 @@ window.checkMateoClash = async () => {
                 });
 
                 window.renderMenuUI();
-                showToast(krockCount > 0 ? `⚠️ Hittade ${krockCount} krockar!` : "✅ Inga krockar denna vecka.");
+                showToast(krockCount > 0 ? `⚠️ Hittade ${krockCount} krockar!` : "✅ Inga krockar hittades.");
 
             } catch (error) {
-                console.error("Fel i krock-kollen:", error);
-                showToast("Kunde inte hämta skolmat.");
+                console.error("Krock-koll fel:", error);
+                showToast("Kunde inte hämta skolmat (Proxy-problem).");
             } finally {
                 if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
             }
@@ -863,6 +868,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
