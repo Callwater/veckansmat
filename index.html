@@ -797,9 +797,6 @@ window.checkMateoClash = async () => {
         };
         
 
-
-        window.toggleLock = (day) => { if(window.lockedDays.has(day)) window.lockedDays.delete(day); else window.lockedDays.add(day); window.renderMenuUI(); };
-
         // --- NEW SMART GENERATION LOGIC ---
         window.generateMenu = () => {
             // 1. Identifiera vilka dagar som behöver fyllas (inte är låsta)
@@ -1340,6 +1337,7 @@ function generateShoppingList(ing) {
 </body>
 
 </html>
+
 
 
 
