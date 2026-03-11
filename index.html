@@ -625,6 +625,39 @@ async function saveBasvarorToCloud() {
         console.error("Kunde inte spara globala basvaror:", e);
     }
 }
+
+        // --- KOPIERA OCH ERSÄTT DIN BEFINTLIGA addBasvara ---
+window.addBasvara = async () => {
+    const input = document.getElementById('new-basvara');
+    if (!input) return;
+    
+    const nyVara = input.value.trim().toLowerCase();
+    
+    if (nyVara === "") {
+        showToast("Skriv in något först!");
+        return;
+    }
+
+    // 1. Lägg till i den lokala listan (Set)
+    basvarorSet.add(nyVara);
+    
+    // 2. Töm fältet direkt för bättre känsla
+    input.value = "";
+
+    // 3. Spara till den GLOBALA mappen
+    try {
+        const globalDocRef = doc(db, "globala_installningar", "basvaror");
+        await setDoc(globalDocRef, { 
+            items: Array.from(basvarorSet) 
+        });
+        showToast(`"${nyVara}" tillagd för alla hem!`);
+    } catch (error) {
+        console.error("Firebase stoppade dig:", error);
+        // Om du ser detta i konsolen (F12) är det dina Rules som spökar
+        showToast("Fel: Du har inte tillåtelse att ändra basvaror.");
+    }
+};
+        
        // window.addBasvara = async () => {
        //     const v = document.getElementById('new-basvara').value.trim().toLowerCase();
          //   if(!v) return;
@@ -838,6 +871,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
