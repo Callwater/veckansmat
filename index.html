@@ -285,1025 +285,147 @@
 
     <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 text-center text-sm font-medium w-max max-w-[80%] no-print"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, doc, addDoc, getDoc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        try { MobileDragDrop.polyfill({ dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride }); } catch(e) {}
+    // 1. DIN FIREBASE CONFIG (Behåll din befintliga här)
+    const firebaseConfig = {
+        apiKey: "AIzaSyA4tVwDuLbDIRTt6O9gnghpJRBOXjD6fI0",
+        authDomain: "veckansmat-3ed6b.firebaseapp.com",
+        projectId: "veckansmat-3ed6b",
+        storageBucket: "veckansmat-3ed6b.firebasestorage.app",
+        messagingSenderId: "199515297394",
+        appId: "1:199515297394:web:d071866da9add8338954eb",
+        measurementId: "G-01R2YNNJ8V"
+    };
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyA4tVwDuLbDIRTt6O9gnghpJRBOXjD6fI0",
-            authDomain: "veckansmat-3ed6b.firebaseapp.com",
-            projectId: "veckansmat-3ed6b",
-            storageBucket: "veckansmat-3ed6b.firebasestorage.app",
-            messagingSenderId: "199515297394",
-            appId: "1:199515297394:web:d071866da9add8338954eb",
-            measurementId: "G-01R2YNNJ8V"
-        };
+    // 2. INITIALISERING OCH RUMS-LOGIK
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        let app, db;
-        try { app = initializeApp(firebaseConfig); db = getFirestore(app); } 
-        catch (e) { console.error("Firebase Error", e); document.getElementById('connection-status').innerHTML = '<i class="fas fa-exclamation-circle text-red-300"></i> Init Error'; }
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentRoom = urlParams.get('rum') || 'standard';
 
-// 1. Kolla URL:en efter ?rum=namn
-const urlParams = new URLSearchParams(window.location.search);
-const currentRoom = urlParams.get('rum') || 'standard';
+    // Globala sökvägar - Dessa använder vi överallt nu
+    const RECEPT_PATH = `rum/${currentRoom}/recept`;
+    const SETTINGS_PATH = `rum/${currentRoom}/settings`;
+    const MENU_DOC_ID = "current-menu";
 
-// 2. Definiera de unika sökvägarna för detta rum
-const RECEPT_PATH = `rum/${currentRoom}/recept`;
-const SETTINGS_PATH = `rum/${currentRoom}/settings`;
-const MENU_DOC = "current-menu";
+    // Globala variabler för appen
+    window.dishes = [];
+    window.currentMenu = {};
+    window.lockedDays = new Set();
 
-// Gör dem globala så alla funktioner når dem
-window.currentRoom = currentRoom;
-        
-        const SETTINGS_DOC = "basvaror";
-        const CATEGORIES_DOC = "customCategories";
+    // 3. HÄMTA DATA I REALTID (onSnapshot)
+    // Denna lyssnar på recepten i det specifika rummet
+    onSnapshot(collection(db, RECEPT_PATH), (snapshot) => {
+        window.dishes = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log(`Laddat ${window.dishes.length} recept från rum: ${currentRoom}`);
+        renderDishList();
+    });
 
-        let dishes = [];
-        let editingId = null;
-        let hiddenItemsCount = 0;
-        let deleteTargetId = null;
-        let selectingForDay = null;
-        let basvarorSet = new Set(['salt', 'peppar', 'svartpeppar', 'vitpeppar', 'olja', 'olivolja', 'rapsolja', 'mjöl', 'vetemjöl', 'ströbröd', 'ris', 'pasta', 'spaghetti', 'makaroner', 'potatis', 'lök', 'gullök', 'rödlök', 'vitlök', 'ägg', 'krossade tomater', 'tomatpuré', 'buljong', 'grönsaksbuljong', 'köttbuljong', 'kycklingbuljong', 'socker', 'soja', 'ketchup', 'senap', 'vinäger', 'dill', 'persilja', 'oregano', 'timjan', 'paprikapulver', 'curry', 'sambal oelek', 'smör', 'mjölk']);
-        window.currentMenu = {}; 
-        window.lockedDays = new Set();
-        window.detectedClashes = {}; // Håller koll på vilka dagar som krockar
-        let schoolMenuData = {}; 
-        let customCategories = {}; 
-
-        
-// --- KROCK-KOLL ANPASSAD FÖR GITHUB PAGES ---
-window.checkMateoClash = async () => {
-            const btn = document.getElementById('clash-btn');
-            const originalText = btn ? btn.innerHTML : '';
-            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...'; btn.disabled = true; }
-            
-            try {
-                window.detectedClashes = {}; 
-                const today = new Date();
-                const dayOfWeek = today.getDay();
-                
-                let monday = new Date(today);
-                if (dayOfWeek === 6) { monday.setDate(today.getDate() + 2); } 
-                else if (dayOfWeek === 0) { monday.setDate(today.getDate() + 1); } 
-                else { monday.setDate(today.getDate() - (dayOfWeek - 1)); }
-                
-                const getYMD = (d) => {
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    return `${y}-${m}-${day}`;
-                };
-
-                const fromDate = getYMD(monday);
-                const friday = new Date(monday); 
-                friday.setDate(monday.getDate() + 4);
-                const toDate = getYMD(friday);
-
-                const targetUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${fromDate}&to=${toDate}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-
-                const res = await fetch(proxyUrl);
-                if (!res.ok) throw new Error("Kunde inte nå mat-servern.");
-                
-                const data = await res.json();
-                const rawMeals = data.data || data;
-                const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
-                let krockCount = 0;
-
-                // --- ORD SOM SKA IGNORERAS (För att slippa falska krockar) ---
-                const stoppOrd = [
-                    'ris', 'potatis', 'pasta', 'makaroner', 'mos', 'bulgur', 'couscous', 
-                    'med', 'och', 'till', 'friterad', 'stekt', 'kokt', 'ugnsstekt', 
-                    'serveras', 'tillbehör', 'sås', 'remouladsås', 'gräddsås', 'filé'
-                ];
-
-                vardagar.forEach((dag, index) => {
-                    const dateTarget = new Date(monday);
-                    dateTarget.setDate(monday.getDate() + index);
-                    const dateStr = getYMD(dateTarget);
-                    
-                    const dayData = Array.isArray(rawMeals) 
-                        ? rawMeals.find(d => String(d.date || "").includes(dateStr)) 
-                        : null;
-                        
-                    const minRatt = window.currentMenu[dag] || window.currentMenu[dag.toLowerCase()];
-
-                    if (minRatt && dayData && dayData.meals) {
-                        const minRattNamn = minRatt.namn.toLowerCase();
-                        
-                        // 1. Filtrera bort Lunch 2 (vegetariskt)
-                        const huvudrätter = dayData.meals.filter(m => m.type !== "Lunch 2");
-
-                        huvudrätter.forEach(m => {
-                            const skolmatText = ((m.name || "") + " " + (m.title || "") + " " + (m.description || "")).toLowerCase();
-                            
-                            // 2. Dela upp ditt namn i sökord
-                            const sökOrd = minRattNamn
-                                .replace("stroganoff", " stroganoff")
-                                .replace("bullar", " bullar")
-                                .replace("biffar", " biffar")
-                                .split(/[\s,.-]+/)
-                                // HÄR FILTRERAR VI: Ordet måste vara minst 3 tecken OCH inte finnas i stopplistan
-                                .filter(o => o.length >= 3 && !stoppOrd.includes(o));
-                            
-                            // 3. Jämför de viktiga orden (t.ex. "kyckling" men inte "ris")
-                            const ärKrock = sökOrd.some(ord => skolmatText.includes(ord));
-
-                            if (ärKrock) {
-                                window.detectedClashes[dag] = true;
-                                krockCount++;
-                            }
-                        });
-                    }
-                });
-
-                window.renderMenuUI();
-
-                if (krockCount > 0) {
-                    alert(`⚠️ Krock! ${krockCount} dag(ar) matchar skolans huvudrätt.`);
-                } else {
-                    alert("✅ Inga krockar hittades!");
-                }
-
-            } catch (error) {
-                console.error("Fel:", error);
-                alert("Kunde inte hämta skolmaten.");
-            } finally {
-                if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
-            }
-        };
-
-        function updateSchoolUI() {
-            const el = document.getElementById('current-school-name');
-            if(el) el.innerText = currentSchoolName;
+    // Denna lyssnar på veckomenyn i det specifika rummet
+    onSnapshot(doc(db, SETTINGS_PATH, MENU_DOC_ID), (docSnap) => {
+        if (docSnap.exists()) {
+            window.currentMenu = docSnap.data();
+            renderMenuUI();
         }
+    });
 
-        if(db) {
-            // Listen to Dishes
-onSnapshot(collection(db, RECEPT_PATH), (snapshot) => {
-    window.dishes = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
-    renderDishList(); // Rita ut listan
-});
+    // 4. RENDERING AV RECEPT (Hanterar Array för ingredienser)
+    window.renderDishList = () => {
+        const listElement = document.getElementById('dish-list');
+        if (!listElement) return;
 
-            // Listen to Basvaror
-            onSnapshot(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    if(data.items && Array.isArray(data.items)) basvarorSet = new Set(data.items.map(i => i.toLowerCase()));
-                }
-            }, (err) => console.log(err));
+        // Sortera alfabetiskt
+        const sorted = [...window.dishes].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 
-            // Listen to Custom Categories
-            onSnapshot(doc(db, SETTINGS_COLLECTION, CATEGORIES_DOC), (docSnap) => {
-                if (docSnap.exists()) {
-                    customCategories = docSnap.data().map || {};
-                }
-            }, (err) => console.log(err));
-        }
+        listElement.innerHTML = sorted.map(dish => {
+            // Om ingredienser är en lista (Array), gör om till text för förhandsvisning
+            const ingPreview = Array.isArray(dish.ingredients) 
+                ? dish.ingredients.join(', ') 
+                : (dish.ingredients || "");
 
-        function updateStatus(c) { document.getElementById('connection-status').innerHTML = c ? '<i class="fas fa-wifi text-green-300"></i> Online' : '<i class="fas fa-exclamation-circle text-red-300"></i> Offline'; }
-
-        // --- EXPANDED KEYWORDS & LOGIC ---
-        const CATEGORY_KEYWORDS = { 
-            'Frukt & Grönt': [
-                'tomat','gurka','sallad','lök','paprika','morot','potatis','vitlök','chili','ingefära','citron','lime','äpple','banan','svamp','champinjon','avokado','spenat','kål','broccoli','blomkål','palsternacka','purjolök','dill','persilja','koriander','frukt','bär',
-                'melon','päron','apelsin','mandarin','clementin','satsumas','vindruvor','kiwi','mango','ananas','zucchini','aubergine','squash','selleri','rotfrukt','rödbeta','rädisa','sötpotatis','ruccola','basilika','mynta','timjan','rosmarin','ärtskocka','sparris','pumpa','bönor','ärtor','groddar'
-            ], 
-            'Bröd & Bageri': [
-                'bröd','limpa','rostbröd','fralla','baguette','tortilla','korvbröd','hamburgerbröd','knäckebröd','kex','kaka','bulle','tunnbröd','libabröd',
-                'pitabröd','ciabatta','scones','muffins','tårta','längd','skorpor','kaffebröd','bake-off','surdeg','rågbröd','tekaka','polarkaka','dammsugare','wienerbröd','munk'
-            ],
-            'Mejeri & Ost': [
-                'mjölk','grädde','ost','smör','creme fraiche','gräddfil','yoghurt','kvarg','halloumi','feta','mozzarella','parmesan','ägg','margarin','filmjölk',
-                'keso','färskost','mjukost','ädelost','brie','camembert','gorgonzola','riven ost','messmör','vispgrädde','matlagningsgrädde','havredryck','sojadryck','creme bonjour','philadelphia','mascarpone','ricotta','kvarg'
-            ], 
-            'Kött & Fågel': [
-                'kött','färs','skinka','bacon','fläsk','kyckling','kalkon','biff','oxfilé','entrecote','högrev','lamm','grytbitar',
-                'lövbiff','rostbiff','fläskfilé','fläskkotlett','karré','revbensspjäll','blandfärs','nötfärs','fläskfärs','kycklingfärs','kycklingfilé','kycklingklubba','kycklingvingar','minutbiff','ytterfilé','fransyska','picnicbog'
-            ], 
-            'Chark': [
-                'korv','salami','medwurst','falukorv','prinskorv','chorizo','skinka','kalkonbröst','pastej',
-                'leverpastej','blodpudding','kassler','varmkorv','grillkorv','wienerkorv','ölkorv','prosciutto','parma','serrano','mortadella','rökt skinka','kokt skinka','pölsa','isterband','julskinka'
-            ], 
-            'Fisk & Skaldjur': [
-                'fisk','lax','torsk','räkor','sej','kolja','musslor','sill','fiskpinnar','ansjovis',
-                'makrill','tonfisk','rödspätta','hälleflundra','kolja','gös','abborre','kräftor','krabba','rom','kaviar','surimi','bläckfisk','pilgrimsmusslor','matjes','böckling','lutfisk'
-            ], 
-            'Fryst': [
-                'fryst','glass','is','djupfryst','pyttipanna','pommes','potatisbullar','wokgrönsaker','ärtor','majs','spenat',
-                'pizza','panpizza','fiskgratäng','hamburgare','nuggets','schnitzel','bär','mango','hallon','blåbär','jordgubbar','köttbullar','karins','findus','felix','dafgårds','kycklingklubbor'
-            ], 
-            'Skafferi': [
-                'pasta','ris','mjöl','socker','salt','peppar','olja','vinäger','sås','buljong','krossade tomater','kokosmjölk','bönor','linser','tacochips','ströbröd','tomatpuré','kakao','bakpulver','flingor','müsli','havregryn','nötter','frön',
-                'couscous','bulgur','matvete','nudlar','pesto','tapenade','oliver','soltorkade tomater','senap','ketchup','majonnäs','soja','fond','tacosås','salsa','tortillabröd','hårt bröd','sylt','marmelad','honung','nutella','jordnötssmör','vaniljsocker','jäst','sirap','maizena','redning','lasagneplattor'
-            ], 
-            'Kryddor': [
-                'basilika','oregano','timjan','spiskummin','paprikapulver','curry','kanel','kardemumma','krydda','ingefära','vitlökspulver','lökpulver',
-                'chili flakes','cayennepeppar','lagerblad','rosmarin','dragon','dill','persilja','kryddpeppar','nejlika','saffran','vaniljstång','citronsyra','bikarbonat','grillkrydda','örtsalt'
-            ],
-            'Dryck': [
-                'kaffe','te','juice','läsk','öl','saft','vatten','cola','fanta','sprite','cider','mjölkdryck','oboy',
-                'chokladdryck','energidryck','loka','ramlösa','bordsvatten','lättöl','alkoholfritt','smoothie','proviva','fun light','bubbelvatten','julmust','påskmust'
-            ],
-            'Städ & Hygien': [
-                'toalettpapper','hushållspapper','tvål','schampo','balsam','tandkräm','diskmedel','tvättmedel','städ','blöjor','bindor','tamponger','wettex','svamp','påsar','folie',
-                'bakplåtspapper','plastfolie','fryspåsar','soppåsar','rengöringsmedel','såpa','diskborste','tandborste','tandtråd','bomull','tops','rakhyvel','deodorant','duschcreme','hudlotion','sköljmedel','yes','via','ariel'
-            ],
-            'Snacks & Godis': [
-                'chips','godis','choklad','popcorn','ostbågar','dipp','jordnötter',
-                'cashewnötter','pistagenötter','salta pinnar','kex','kakor','lösgodis','tuggummi','tablettask','nötblandning','marabou','kexchoklad','bilar'
-            ]
-        };
-        
-        function categorizeIngredient(ing) { 
-            const lower = ing.toLowerCase(); 
-            if (customCategories[lower]) { return customCategories[lower]; }
-            for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) { 
-                if (keywords.some(k => lower.includes(k))) return cat; 
-            } 
-            return 'Övrigt'; 
-        }
-
-        // --- APP LOGIC ---
-
-        window.openBasvarorModal = () => { document.getElementById('basvaror-modal').classList.remove('hidden'); renderBasvarorList(); };
-        window.closeBasvarorModal = () => { document.getElementById('basvaror-modal').classList.add('hidden'); };
-        window.addBasvara = async () => { const v=document.getElementById('new-basvara').value.trim().toLowerCase(); if(v){ basvarorSet.add(v); document.getElementById('new-basvara').value=''; renderBasvarorList(); await saveBasvarorToCloud(); }};
-        window.removeBasvara = async (v) => { basvarorSet.delete(v); renderBasvarorList(); await saveBasvarorToCloud(); };
-        function renderBasvarorList() { document.getElementById('basvaror-list').innerHTML = [...basvarorSet].sort().map(i => `<div class="chip">${i}<button onclick="window.removeBasvara('${i}')">&times;</button></div>`).join(''); }
-        
-        async function saveBasvarorToCloud() { 
-            if(db) await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), { items: [...basvarorSet] }); 
-        async function saveDish(newDish) {
-    // newDish är ett objekt med title, ingredients (array) och kategori
-    await addDoc(collection(db, RECEPT_PATH), newDish);
-}    
-        
-
-        window.openImportModal = () => { document.getElementById('import-modal').classList.remove('hidden'); document.getElementById('import-url-input').focus(); };
-        window.closeImportModal = () => { document.getElementById('import-modal').classList.add('hidden'); document.getElementById('import-url-input').value = ''; };
-
-        // --- Category Edit ---
-        let itemToEdit = null;
-        window.openCategoryModal = (itemName) => {
-            itemToEdit = itemName;
-            document.getElementById('cat-edit-item-name').innerText = itemName;
-            document.getElementById('cat-edit-new').value = ''; 
-            const select = document.getElementById('cat-edit-select');
-            select.innerHTML = '';
-            
-            const standardCats = Object.keys(CATEGORY_KEYWORDS);
-            const customCats = Object.values(customCategories);
-            const uniqueCats = [...new Set([...standardCats, ...customCats, 'Övrigt'])].sort();
-            const currentCat = categorizeIngredient(itemName);
-
-            uniqueCats.forEach(c => {
-                const selected = currentCat === c ? 'selected' : '';
-                select.innerHTML += `<option value="${c}" ${selected}>${c}</option>`;
-            });
-            document.getElementById('category-modal').classList.remove('hidden');
-        };
-
-        window.saveCategoryChange = async () => {
-            if(!itemToEdit || !db) return;
-            const selectVal = document.getElementById('cat-edit-select').value;
-            const inputVal = document.getElementById('cat-edit-new').value.trim();
-            let newCat = inputVal || selectVal;
-            newCat = newCat.charAt(0).toUpperCase() + newCat.slice(1);
-
-            customCategories[itemToEdit.toLowerCase()] = newCat;
-            try {
-                await setDoc(doc(db, SETTINGS_COLLECTION, CATEGORIES_DOC), { map: customCategories });
-                showToast("Kategori sparad!");
-                window.renderMenuUI(); 
-            } catch(e) {
-                console.error(e);
-                showToast("Kunde inte spara");
-            }
-            document.getElementById('category-modal').classList.add('hidden');
-        };
-        
-        // --- BYT RÄTT LOGIK ---
-        window.openSelectDishModal = (day) => {
-            selectingForDay = day;
-            document.getElementById('select-dish-title').innerText = `Välj rätt för ${day}`;
-            document.getElementById('select-modal-search').value = '';
-            document.getElementById('select-dish-modal').classList.remove('hidden');
-            renderSelectDishList();
-        };
-
-        window.closeSelectDishModal = () => {
-            document.getElementById('select-dish-modal').classList.add('hidden');
-            selectingForDay = null;
-        };
-
-        function renderSelectDishList() {
-            const listEl = document.getElementById('select-dish-list');
-            listEl.innerHTML = '';
-            const cols = { 'kött': 'bg-red-100 text-red-800', 'kyckling': 'bg-yellow-100 text-yellow-800', 'fisk': 'bg-blue-100 text-blue-800', 'vegetarisk': 'bg-green-100 text-green-800', 'chark': 'bg-orange-100 text-orange-800', 'helg': 'bg-purple-100 text-purple-800' };
-            
-            [...dishes].sort((a,b) => a.namn.localeCompare(b.namn)).forEach(d => {
-                listEl.innerHTML += `
-                <div class="select-item cursor-pointer bg-white border border-gray-200 rounded p-3 hover:bg-emerald-50 transition flex justify-between items-center shadow-sm" onclick="window.selectDishForDay('${d.id}')">
-                    <span class="text-sm font-medium text-gray-800">${d.namn}</span>
-                    <span class="text-[10px] uppercase px-2 py-1 rounded-full font-bold ${cols[d.kategori]||'bg-gray-100'}">${d.kategori}</span>
-                </div>`;
-            });
-        }
-
-        window.filterSelectModal = () => {
-            const term = document.getElementById('select-modal-search').value.toLowerCase();
-            const items = document.getElementById('select-dish-list').getElementsByClassName('select-item');
-            Array.from(items).forEach(item => {
-                if(item.innerText.toLowerCase().includes(term)) item.classList.remove('hidden');
-                else item.classList.add('hidden');
-            });
-        };
-
-        window.selectDishForDay = (dishId) => {
-            const d = dishes.find(x => x.id === dishId);
-            if(d && selectingForDay) {
-                window.currentMenu[selectingForDay] = d;
-                window.lockedDays.add(selectingForDay); // Låser dagen automatiskt så den inte slumpas bort
-                window.renderMenuUI();
-                window.closeSelectDishModal();
-                showToast(`Bytt till ${d.namn}!`);
-            }
-        };
-
-        window.togglePrintShoppingList = () => { const chk=document.getElementById('print-include-list'); const l=document.getElementById('shopping-list-container'); if(chk.checked) l.classList.remove('print-hidden'); else l.classList.add('print-hidden'); };
-        
-        function calculateSimilarity(s1, s2) {
-            let longer = s1; let shorter = s2;
-            if (s1.length < s2.length) { longer = s2; shorter = s1; }
-            let longerLength = longer.length;
-            if (longerLength === 0) return 1.0;
-            return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
-        }
-
-        function editDistance(s1, s2) {
-            s1 = s1.toLowerCase(); s2 = s2.toLowerCase();
-            let costs = new Array();
-            for (let i = 0; i <= s1.length; i++) {
-                let lastValue = i;
-                for (let j = 0; j <= s2.length; j++) {
-                    if (i == 0) costs[j] = j;
-                    else {
-                        if (j > 0) {
-                            let newValue = costs[j - 1];
-                            if (s1.charAt(i - 1) != s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                            costs[j - 1] = lastValue;
-                            lastValue = newValue;
-                        }
-                    }
-                }
-                if (i > 0) costs[s2.length] = lastValue;
-            }
-            return costs[s2.length];
-        }
-
-        window.handleSaveDish = async () => {
-            const name = document.getElementById('new-name').value.trim();
-            const cat = document.getElementById('new-category').value;
-            const ingStr = document.getElementById('new-ingredients').value.trim();
-            if (!name || !ingStr) { showToast('Fyll i alla fält!'); return; }
-            const ings = ingStr.split(',').map(i => i.trim()).filter(i => i);
-            const btn = document.getElementById('save-btn');
-            const normName = name.toLowerCase();
-            let existingDish = null;
-            let maxSim = 0;
-            for (const d of dishes) {
-                if (d.id === editingId) continue;
-                if(d.namn.toLowerCase() === normName) { existingDish = d; maxSim = 1; break; }
-                const sim = calculateSimilarity(d.namn, name);
-                if (sim > 0.8 && sim > maxSim) { existingDish = d; maxSim = sim; }
-            }
-            if (existingDish) {
-                const msg = maxSim === 1 ? `Rätten "${existingDish.namn}" finns redan.` : `Hittade en liknande rätt: "${existingDish.namn}" (${Math.round(maxSim*100)}% likhet).`;
-                if(confirm(`${msg} \nVill du uppdatera den befintliga rätten istället för att skapa en ny?`)) editingId = existingDish.id; else return;
-            }
-            btn.innerText = "Sparar..."; btn.disabled = true;
-            try { 
-                if(editingId) await updateDoc(doc(db, COLLECTION_NAME, editingId), { namn: name, kategori: cat, ingredienser: ings });
-                else await addDoc(collection(db, COLLECTION_NAME), { namn: name, kategori: cat, ingredienser: ings }); 
-                showToast('Sparat!'); window.resetForm(); 
-            } catch(e) { console.error(e); showToast('Fel vid sparning'); } 
-            finally { btn.disabled = false; btn.innerText = editingId ? "Spara ändringar" : "Spara till Molnet"; }
-        };
-
-        window.deleteDish = (id) => { deleteTargetId = id; document.getElementById('delete-modal').classList.remove('hidden'); };
-        window.closeDeleteModal = () => { document.getElementById('delete-modal').classList.add('hidden'); deleteTargetId = null; };
-        window.confirmDelete = async () => { 
-            if(!deleteTargetId) return; 
-            try { await deleteDoc(doc(db, COLLECTION_NAME, deleteTargetId)); showToast('Borttagen'); } catch(e) {} window.closeDeleteModal(); 
-        };
-        
-        window.editDish = (id) => { const d = dishes.find(x => x.id === id); if(!d) return; editingId = id; document.getElementById('new-name').value = d.namn; document.getElementById('new-category').value = d.kategori; document.getElementById('new-ingredients').value = d.ingredienser.join(', '); document.getElementById('form-title').innerText = 'Redigera'; document.getElementById('save-btn').innerText = 'Spara ändringar'; document.getElementById('save-btn').classList.replace('bg-blue-600', 'bg-emerald-600'); document.getElementById('cancel-edit-btn').classList.remove('hidden'); window.showTab('add'); };
-        window.resetForm = () => { editingId = null; document.getElementById('new-name').value = ''; document.getElementById('new-ingredients').value = ''; document.getElementById('form-title').innerText = 'Lägg till ny rätt'; document.getElementById('save-btn').innerText = 'Spara till Molnet'; document.getElementById('save-btn').classList.replace('bg-emerald-600', 'bg-blue-600'); document.getElementById('cancel-edit-btn').classList.add('hidden'); };
-        window.exportDishes = () => { const blob = new Blob([JSON.stringify(dishes.map(({id, ...r})=>r), null, 2)], {type: "application/json"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `veckomeny_${new Date().toISOString().split('T')[0]}.json`; a.click(); showToast('Fil sparad!'); };
-        
-        window.importDishes = (input) => { 
-            if(!input.files[0]) return; 
-            const r = new FileReader(); 
-            r.onload = async (e) => { 
-                try { 
-                    const data = JSON.parse(e.target.result); 
-                    let count = 0; let duplicates = 0;
-                    for(const d of data) { 
-                        if(d.namn && d.ingredienser) { 
-                            let exists = false;
-                            for (const existing of dishes) { if (calculateSimilarity(existing.namn, d.namn) > 0.85) { exists = true; break; } }
-                            if (!exists) { await addDoc(collection(db, COLLECTION_NAME), {namn: d.namn, kategori: d.kategori, ingredienser: d.ingredienser}); count++; } else { duplicates++; }
-                        } 
-                    } 
-                    if (duplicates > 0) showToast(`${count} importerade. ${duplicates} liknande hoppades över.`); else showToast(`${count} recept importerade!`); 
-                } catch(err) { alert('Fel på filen'); } 
-            }; 
-            r.readAsText(input.files[0]); input.value = ''; 
-        };
-        
-function renderDishList() {
-    const container = document.getElementById('dish-list');
-    if (!container) return;
-
-    // Filtrera och sortera (vi använder en tom lista [] som fallback)
-    const list = (window.dishes || []).sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-
-    container.innerHTML = list.map(dish => {
-        // Om ingredients är en lista, gör om till "Lök, Tomat, Ost"
-        const ingText = Array.isArray(dish.ingredients) 
-            ? dish.ingredients.join(', ') 
-            : (dish.ingredients || "");
-
-        return `
-            <div class="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100">
-                <h3 class="font-bold text-gray-800">${dish.title || 'Namnlös'}</h3>
-                <p class="text-sm text-gray-500">${ingText}</p>
-                <div class="mt-2 text-[10px] font-bold uppercase text-emerald-600">${dish.kategori || 'övrigt'}</div>
-            </div>
-        `;
-    }).join('');
-}
-
-        window.toggleLock = (day) => { if(window.lockedDays.has(day)) window.lockedDays.delete(day); else window.lockedDays.add(day); window.renderMenuUI(); };
-
-        // --- NEW SMART GENERATION LOGIC ---
-        window.generateMenu = () => {
-            // 1. Identifiera vilka dagar som behöver fyllas (inte är låsta)
-            const allDays = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
-            const daysToFill = allDays.filter(day => !window.lockedDays.has(day));
-
-            if (daysToFill.length === 0) { 
-                showToast("Lås upp dagar för att slumpa!"); 
-                return; 
-            }
-
-            // 2. Skapa en pool av tillgängliga rätter (exkludera de som redan ligger på låsta dagar)
-            const lockedIds = new Set();
-            window.lockedDays.forEach(day => {
-                if (window.currentMenu[day]) lockedIds.add(window.currentMenu[day].id);
-            });
-            
-            // Kopiera listan och ta bort låsta rätter
-            let availableDishes = dishes.filter(d => !lockedIds.has(d.id));
-
-            if (availableDishes.length < daysToFill.length) {
-                showToast(`För få unika rätter! Du behöver ${daysToFill.length} st till.`);
-                return;
-            }
-
-            // 3. Definiera mål för en balanserad vecka
-            // Vi blandar ordningen på målen så att "Fisk" inte alltid hamnar på Måndag om Måndag är ledig.
-            const weekdayPriorities = ['fisk', 'vegetarisk', 'kyckling', 'kött', 'chark'].sort(() => 0.5 - Math.random());
-
-            // 4. Funktion för att plocka en rätt ur poolen
-            const pickDish = (preferredCategory, isWeekend) => {
-                let candidates = [];
-                
-                if (preferredCategory) {
-                    candidates = availableDishes.filter(d => d.kategori === preferredCategory);
-                }
-
-                // Fallback-logik: Om önskad kategori är slut/saknas
-                if (candidates.length === 0) {
-                    if (isWeekend) {
-                        // Helg: Försök hitta 'helg'-rätter först, annars ta vad som helst
-                        candidates = availableDishes.filter(d => d.kategori === 'helg');
-                        if (candidates.length === 0) candidates = availableDishes;
-                    } else {
-                        // Vardag: Försök undvika 'helg'-rätter så man inte äter oxfilé på tisdag, annars ta vad som helst
-                        candidates = availableDishes.filter(d => d.kategori !== 'helg');
-                        if (candidates.length === 0) candidates = availableDishes;
-                    }
-                }
-
-                if (candidates.length === 0) return null;
-
-                // Slumpa en ur kandidaterna
-                const winner = candidates[Math.floor(Math.random() * candidates.length)];
-                
-                // Ta bort den valda rätten från poolen så den inte väljs igen samma vecka
-                availableDishes = availableDishes.filter(d => d.id !== winner.id);
-                
-                return winner;
-            };
-
-            // 5. Fyll dagarna
-            const newMenu = { ...window.currentMenu };
-
-            daysToFill.forEach(day => {
-                let dish = null;
-                
-                if (day === 'Fredag' || day === 'Lördag') {
-                    // Helg-logik: Prioritera Helg-kategorin
-                    dish = pickDish('helg', true);
-                } else {
-                    // Vardags-logik: Ta nästa prioritet från listan (t.ex. Fisk), eller null om listan är slut
-                    const prio = weekdayPriorities.pop(); 
-                    dish = pickDish(prio, false);
-                }
-
-                if (dish) newMenu[day] = dish;
-            });
-
-            // 6. Uppdatera UI
-            window.currentMenu = newMenu;
-            window.renderMenuUI();
-            
-            // Visa UI-element
-            document.getElementById('print-btn-container').classList.remove('hidden'); 
-            document.getElementById('drag-hint').classList.remove('hidden'); 
-            window.togglePrintShoppingList(); 
-            document.getElementById('shopping-list-container').classList.remove('hidden'); 
-            document.getElementById('menu-result').scrollIntoView({behavior:'smooth', block:'start'});
-        };
-
-window.renderMenuUI = () => {
-            const resEl = document.getElementById('menu-result');
-            resEl.innerHTML = ''; resEl.classList.remove('hidden');
-            let allIng = [];
-            const daysOrder = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
-            
-            daysOrder.forEach(day => {
-                const d = window.currentMenu[day];
-                if(d) d.ingredienser.forEach(i => allIng.push(i));
-                
-                const isLocked = window.lockedDays.has(day);
-                // KOLLA EFTER KROCK HÄR:
-                const hasClash = window.detectedClashes && window.detectedClashes[day];
-                const clashBadge = hasClash ? `<div class="absolute top-2 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm animate-pulse z-10"><i class="fas fa-exclamation-triangle"></i> SKOLMAT-KROCK</div>` : '';
-                
-                const lockClass = isLocked ? 'locked-card' : 'border-emerald-500';
-                const lockIcon = isLocked ? 'fa-lock locked-icon' : 'fa-lock-open text-gray-300 hover:text-gray-500';
-                
-                resEl.innerHTML += `
-                <div draggable="true" data-day="${day}" ondragstart="window.dragStart(event)" ondrop="window.drop(event)" ondragover="window.dragOver(event)" ondragenter="window.dragEnter(event)" ondragleave="window.dragLeave(event)"
-                    class="drag-card bg-white p-4 rounded-xl border-l-4 shadow-sm relative print:border print:shadow-none ${lockClass}">
-                    
-                    ${clashBadge} <div class="flex justify-between no-print pointer-events-none items-start">
-                        <div class="text-xs font-bold text-emerald-600 uppercase mb-1">${day}</div>
-                        <div class="flex gap-3 pointer-events-auto items-center">
-                            <button onclick="window.toggleLock('${day}')" class="text-sm p-1 transition" title="Lås rätt"><i class="fas ${lockIcon}"></i></button>
-                            <button onclick="window.openSelectDishModal('${day}')" class="text-gray-300 p-1 hover:text-emerald-500 transition"><i class="fas fa-exchange-alt text-xs"></i></button>
-                            <button onclick="window.editDish('${d?.id}')" class="text-gray-300 p-1 hover:text-blue-500 transition"><i class="fas fa-pen text-xs"></i></button>
-                        </div>
+            return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-2 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-gray-800">${dish.title || 'Namnlös'}</h3>
+                        <p class="text-xs text-gray-500 line-clamp-1">${ingPreview}</p>
+                        <p class="text-[10px] text-emerald-600 font-bold uppercase mt-1">${dish.kategori || 'övrigt'}</p>
                     </div>
-                    <div class="hidden print:block text-xs font-bold text-emerald-600 uppercase mb-1 pointer-events-none">${day}</div>
-                    <div class="font-bold text-gray-800 text-lg leading-tight pointer-events-none">${d ? d.namn : 'Ingen rätt vald'}</div>
-                    <div class="text-sm text-gray-500 mt-2 pointer-events-none"><i class="fas fa-carrot mr-2 text-emerald-400 text-xs no-print"></i>${d ? d.ingredienser.join(', ') : ''}</div>
-                </div>`;
-            });
-            generateShoppingList(allIng);
-        };
+                    <button onclick="window.deleteDish('${dish.id}')" class="text-red-300 hover:text-red-500 p-2">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+    };
+
+    // 5. RADERA RECEPT
+    window.deleteDish = async (id) => {
+        if (confirm("Vill du ta bort detta recept?")) {
+            await deleteDoc(doc(db, RECEPT_PATH, id));
+        }
+    };
+
+    // 6. GENERERA HANDLINGSLISTA (Tar bort dubbletter)
+    window.generateShoppingList = () => {
+        const listContainer = document.getElementById('shopping-list-items');
+        if (!listContainer) return;
+
+        let allIngredients = [];
         
-        function getWeekNumber(d) {
-            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-            var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-            return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-        }
-
-        window.checkSchoolFood = async () => {
-            const btn = document.getElementById('school-btn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<div class="loader border-indigo-600 border-t-transparent w-4 h-4 mr-2"></div> Hämtar meny...';
-            btn.disabled = true;
-
-            // Use the dynamic URL
-            let url = currentSchoolUrl;
-            if (url && !url.startsWith('http')) url = 'https://' + url;
-            
-            // Remove trailing slash for cleaner URL building
-            if(url.endsWith('/')) url = url.slice(0, -1);
-
-            const today = new Date();
-            if (today.getDay() === 6) today.setDate(today.getDate() + 2); 
-            if (today.getDay() === 0) today.setDate(today.getDate() + 1); 
-            const targetWeek = getWeekNumber(today);
-
-            schoolMenuData = {};
-
-            try {
-                let html = "";
-                let rssUrlToTry = null;
-
-                // SPECIAL RULE: Skolmaten.se - USE API V4 RSS FORMAT
-                // Format: https://skolmaten.se/api/4/rss/week/[SLUG]?locale=sv
-                if (url.includes('skolmaten.se') && !url.includes('rss') && !url.includes('api')) {
-                    // Extract slug (last part of URL), e.g., 'fria-emilia' from 'https://skolmaten.se/fria-emilia'
-                    const parts = url.split('/').filter(p => p.trim() !== '');
-                    const slug = parts[parts.length - 1]; 
-                    
-                    if (slug) {
-                        rssUrlToTry = `https://skolmaten.se/api/4/rss/week/${slug}?locale=sv`;
-                        console.log("Detected Skolmaten.se, forcing API RSS strategy:", rssUrlToTry);
-                    }
-                }
-
-                // If we have a forced RSS url, try that first
-                if (rssUrlToTry) {
-                    const rssProxies = [
-                        { url: `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrlToTry)}`, type: 'json' },
-                        { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rssUrlToTry)}`, type: 'text' }
-                    ];
-
-                    for(const p of rssProxies) {
-                        try { 
-                            const res = await fetch(p.url); 
-                            if(res.ok) { 
-                                const xmlStr = p.type==='json' ? (await res.json()).contents : await res.text(); 
-                                if(xmlStr && xmlStr.length > 100) {
-                                    parseRSS(xmlStr);
-                                    if(Object.keys(schoolMenuData).length > 0) break;
-                                }
-                            } 
-                        } catch(e){}
-                    }
-                }
-
-                // If RSS strategy worked, we are done
-                if(Object.keys(schoolMenuData).length > 0) {
-                     showToast(`Hämtade meny från RSS`);
-                     window.renderMenuUI();
-                     btn.innerHTML = originalText; 
-                     btn.disabled = false;
-                     return;
-                }
-
-                // --- STANDARD STRATEGY (HTML SCRAPING) ---
-                // If RSS failed or wasn't applicable, try fetching the main URL
-                const proxies = [
-                    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' },
-                    { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' },
-                    { url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' }
-                ];
-
-                for(const p of proxies) {
-                    try { const res = await fetch(p.url); if(res.ok) { html = p.type==='json' ? (await res.json()).contents : await res.text(); if(html.length > 500) break; } } catch(e){}
-                }
-
-                if(!html) throw new Error("Kunde inte nå skolans sida.");
-
-                const doc = new DOMParser().parseFromString(html, "text/html");
-
-                // Check for RSS link in HEAD (if we didn't force it already)
-                const rssLink = doc.querySelector('link[type="application/rss+xml"]')?.href;
-                
-                if (rssLink && !rssUrlToTry) {
-                    let fullRssUrl = rssLink;
-                    if (rssLink.startsWith('/')) {
-                         const urlObj = new URL(url);
-                         fullRssUrl = urlObj.origin + rssLink;
-                    }
-                    
-                    const rssProxies = [
-                        { url: `https://api.allorigins.win/get?url=${encodeURIComponent(fullRssUrl)}`, type: 'json' },
-                        { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(fullRssUrl)}`, type: 'text' }
-                    ];
-
-                    for(const p of rssProxies) {
-                        try { 
-                            const res = await fetch(p.url); 
-                            if(res.ok) { 
-                                const xmlStr = p.type==='json' ? (await res.json()).contents : await res.text(); 
-                                if(xmlStr.length > 100) {
-                                    parseRSS(xmlStr);
-                                    if(Object.keys(schoolMenuData).length > 0) break;
-                                }
-                            } 
-                        } catch(e){}
-                    }
-                }
-
-                // --- TEXT FALLBACK (Last resort) ---
-                if (Object.keys(schoolMenuData).length === 0) {
-                    const text = doc.body.innerText || "";
-                    const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
-                    const weekRegex = new RegExp('(?:vecka|v\\.?)?\\s*' + targetWeek, 'i');
-                    const nextWeekRegex = new RegExp('(?:vecka|v\\.?)?\\s*' + (targetWeek + 1), 'i');
-
-                    let startIndex = text.search(weekRegex);
-                    let relevantText = text;
-
-                    if (startIndex !== -1) {
-                        relevantText = text.substring(startIndex);
-                        const nextIndex = relevantText.search(nextWeekRegex);
-                        if(nextIndex !== -1 && nextIndex > 10) relevantText = relevantText.substring(0, nextIndex);
-                        showToast(`Hämtade meny för vecka ${targetWeek}`);
-                    } else showToast(`Hittade inte vecka ${targetWeek}, visar allt.`);
-
-                    const lines = relevantText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                    let currentDay = null;
-                    lines.forEach(line => {
-                        const l = line; const foundDay = days.find(d => l.includes(d));
-                        if(foundDay) { currentDay = foundDay; if(!schoolMenuData[currentDay]) schoolMenuData[currentDay] = []; } 
-                        else if(currentDay && !days.some(d => l.includes(d))) { if(l.length > 5 && l.length < 100 && !l.includes('Kommun') && !l.includes('Mashie') && !l.toLowerCase().includes('vecka')) schoolMenuData[currentDay].push(l); }
-                    });
-                }
-
-                if(Object.keys(schoolMenuData).length === 0) showToast("Ingen meny hittad (kan kräva inlogg/JS)."); else window.renderMenuUI();
-
-            } catch(e) { console.error(e); showToast("Kunde inte hämta skolmaten just nu."); } finally { btn.innerHTML = originalText; btn.disabled = false; }
-        };
-
-        function parseRSS(xmlStr) {
-            try {
-                const xmlDoc = new DOMParser().parseFromString(xmlStr, "text/xml");
-                const items = xmlDoc.querySelectorAll('item');
-                const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
-                
-                items.forEach(item => {
-                    const title = item.querySelector('title')?.textContent || "";
-                    const desc = item.querySelector('description')?.textContent || "";
-                    
-                    const day = days.find(d => title.includes(d));
-                    if (day) {
-                        const tmp = document.createElement('div');
-                        tmp.innerHTML = desc;
-                        const cleanDesc = tmp.textContent || tmp.innerText || "";
-                        if (!schoolMenuData[day]) schoolMenuData[day] = [];
-                        schoolMenuData[day].push(cleanDesc.trim());
-                    }
-                });
-            } catch(e) { console.log("RSS Parse Error", e); }
-        }
-
-        // --- SMART COLLISION DETECTION (SEMANTIC GROUPING) ---
-        const COLLISION_GROUPS = {
-            'Fisk': ['fisk', 'lax', 'torsk', 'sej', 'kolja', 'spätta', 'strömming', 'sill', 'fiskgratäng', 'fiskpinnar'],
-            'Korv': ['korv', 'falukorv', 'prinskorv', 'chorizo', 'salami', 'isterband'],
-            'Färsrätt': ['färs', 'köttbullar', 'biff', 'burgare', 'wallenbergare', 'pannbiff', 'järpar'],
-            'Soppa': ['soppa', 'buljong'],
-            'Pannkaka': ['pannkaka', 'plättar', 'våfflor'],
-            'Kyckling': ['kyckling', 'kalkon', 'fågel'],
-            'Pasta': ['pasta', 'spaghetti', 'makaroner', 'lasagne', 'tagliatelle', 'fusilli', 'penne'],
-            'Taco': ['taco', 'tortilla', 'nacho'],
-            'Pizza': ['pizza']
-        };
-
-        function checkCollision(day, dinnerDish) {
-            if(!schoolMenuData[day] || !dinnerDish) return null;
-            
-            const lunchItems = schoolMenuData[day];
-            const dinnerText = (dinnerDish.namn + ' ' + dinnerDish.ingredienser.join(' ')).toLowerCase();
-
-            for (const lunch of lunchItems) {
-                const lunchText = lunch.toLowerCase();
-
-                // Check specific groups
-                for (const [groupName, keywords] of Object.entries(COLLISION_GROUPS)) {
-                    const dinnerHit = keywords.some(k => dinnerText.includes(k));
-                    const lunchHit = keywords.some(k => lunchText.includes(k));
-
-                    if (dinnerHit && lunchHit) {
-                        return { type: groupName, lunch: lunch };
-                    }
-                }
-            }
-            return null;
-        }
-
-        window.dragStart = (e) => { e.dataTransfer.setData('text/plain', e.target.getAttribute('data-day')); e.target.classList.add('dragging'); };
-        window.dragOver = (e) => { e.preventDefault(); };
-        window.dragEnter = (e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); };
-        window.dragLeave = (e) => { e.currentTarget.classList.remove('drag-over'); };
-        window.drop = (e) => { e.preventDefault(); const targetDay = e.currentTarget.getAttribute('data-day'); const sourceDay = e.dataTransfer.getData('text/plain'); e.currentTarget.classList.remove('drag-over'); document.querySelector('.dragging')?.classList.remove('dragging'); if (sourceDay && targetDay && sourceDay !== targetDay) { const temp = window.currentMenu[sourceDay]; window.currentMenu[sourceDay] = window.currentMenu[targetDay]; window.currentMenu[targetDay] = temp; window.renderMenuUI(); showToast('Rätter växlade!'); } };
-
-function generateShoppingList(ing) {
-            // 1. Skapa en "katalog" för att hålla koll på unika varor (små bokstäver)
-            const seen = new Set();
-            const uniqueIngredients = [];
-
-            ing.forEach(i => {
-                const trimmed = i.trim();
-                const lower = trimmed.toLowerCase();
-                
-                // Om vi inte har sett den här varan förut (oavsett stora/små bokstäver)
-                if (!seen.has(lower) && trimmed !== "") {
-                    seen.add(lower);
-                    // Spara den med snygg stor bokstav i början
-                    uniqueIngredients.push(trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase());
-                }
-            });
-
-            // 2. Fortsätt med din befintliga logik för basvaror och kategorier
-            const bas = [], cats = {};
-            uniqueIngredients.forEach(i => { 
-                const cleanI = i.toLowerCase(); 
-                if (basvarorSet.has(cleanI)) {
-                    bas.push(i); 
-                } else { 
-                    const cat = categorizeIngredient(i); 
-                    if(!cats[cat]) cats[cat] = []; 
-                    cats[cat].push(i); 
-                } 
-            });
-
-            // Här fortsätter du med att rendera listan...
-            bas.sort(); 
-            const c = document.getElementById('shopping-list-content'); c.innerHTML = ''; hiddenItemsCount = 0; document.getElementById('hidden-items-info').classList.add('hidden');
-            
-            Object.keys(cats).sort().forEach(cat => { 
-                cats[cat].sort(); 
-                c.innerHTML += `<div class="font-bold mb-1 mt-2 text-emerald-800 text-xs uppercase tracking-wider">${cat}</div>
-                <ul class="space-y-1 mb-3">${cats[cat].map(i => `
-                    <li class="flex items-center bg-white p-2 rounded border border-yellow-100 transition-all duration-300 print:border-0 print:p-0">
-                        <input type="checkbox" class="mr-3 h-5 w-5 accent-emerald-600 rounded cursor-pointer no-print" onchange="window.handleCheck(this)">
-                        <span class="print:hidden mr-2">•</span>
-                        <span class="flex-grow capitalize cursor-pointer hover:text-emerald-600 hover:underline decoration-dashed decoration-emerald-300" onclick="window.openCategoryModal('${i.replace(/'/g, "\\'")}')" title="Ändra kategori">${i} <i class="fas fa-pencil-alt text-[10px] text-gray-300 ml-1 no-print edit-cat-icon"></i></span>
-                    </li>`).join('')}</ul>`; 
-            });
-            if(bas.length) c.innerHTML += `<div class="font-bold mb-1 mt-4 text-gray-500 text-xs uppercase tracking-wider">Basvaror (kolla hemma)</div><ul class="space-y-1 pl-1">${bas.map(i => `<li class="flex items-center text-gray-500 text-xs transition-all duration-300"><input type="checkbox" class="mr-2 h-3 w-3 accent-gray-400 cursor-pointer no-print" onchange="window.handleCheck(this)"><span class="capitalize">${i}</span></li>`).join('')}</ul>`;
-        }
-        window.handleCheck = (cb) => { const li = cb.closest('li'); if(cb.checked) { li.classList.add('line-through','text-gray-300','opacity-50'); setTimeout(()=>{if(cb.checked){li.classList.add('fade-out-item');setTimeout(()=>{li.classList.add('hidden');li.classList.remove('fade-out-item');hiddenItemsCount++;updateHiddenUI();},500)}},1000); } else li.classList.remove('line-through','text-gray-300','opacity-50'); };
-        function updateHiddenUI() { const el = document.getElementById('hidden-items-info'); if(hiddenItemsCount>0){el.classList.remove('hidden');document.getElementById('hidden-count').innerText=hiddenItemsCount;} else el.classList.add('hidden');}
-        window.showHiddenItems = () => { document.querySelectorAll('#shopping-list-content li.hidden').forEach(li=>li.classList.remove('hidden')); hiddenItemsCount=0; updateHiddenUI(); };
-        window.copyShoppingList = () => { const items = [...document.querySelectorAll('#shopping-list-content li')].filter(li => !li.querySelector('input').checked).map(li => li.innerText); navigator.clipboard.writeText("HANDLINGSLISTA:\n- " + items.join("\n- ")).then(()=>showToast('Kopierad!')).catch(()=>{}); };
-        window.showTab = (t) => { ['menu','add','list','settings'].forEach(x=>{document.getElementById('view-'+x).classList.add('hidden');document.getElementById('tab-'+x).className="flex-1 py-3 text-center text-sm text-gray-500 border-b-4 border-transparent transition";}); document.getElementById('view-'+t).classList.remove('hidden'); document.getElementById('tab-'+t).className="flex-1 py-3 text-center text-sm bg-emerald-50 font-semibold border-b-4 border-emerald-600 text-emerald-700 transition"; };
-        window.filterDishes = () => { const t = document.getElementById('search-input').value.toLowerCase(); document.querySelectorAll('.dish-item').forEach(i=>i.style.display=i.innerText.toLowerCase().includes(t)?'flex':'none'); };
-        function showToast(m) { const t=document.getElementById('toast');t.innerText=m;t.classList.remove('opacity-0');setTimeout(()=>t.classList.add('opacity-0'),2000); }
-        window.showTab('menu');
-        
-        // --- EXECUTE IMPORT LOGIC ---
-        window.executeImport = async () => {
-            const urlInput = document.getElementById('import-url-input');
-            let url = urlInput.value.trim();
-            const btn = document.getElementById('do-import-btn');
-            
-            if(!url) return showToast("Klistra in en länk först!");
-            if (!url.startsWith('http')) url = 'https://' + url;
-
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<div class="loader border-white border-t-transparent w-4 h-4 mr-2"></div> Hämtar...';
-            btn.disabled = true;
-
-            try {
-                // Strategi: Lista med olika proxys som vi testar i tur och ordning
-                const proxies = [
-                    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' },
-                    { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' },
-                    { url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
-                    { url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text' }
-                ];
-
-                let htmlContent = null;
-
-                // Loopa igenom proxys tills vi får napp
-                for (const proxy of proxies) {
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sek timeout per proxy
-
-                        const res = await fetch(proxy.url, { signal: controller.signal });
-                        clearTimeout(timeoutId);
-
-                        if (res.ok) {
-                            if (proxy.type === 'json') {
-                                const data = await res.json();
-                                htmlContent = data.contents;
-                            } else {
-                                htmlContent = await res.text();
-                            }
-                            
-                            // Om vi fick innehåll som verkar vara HTML, avbryt loopen
-                            if (htmlContent && htmlContent.length > 200) {
-                                break;
-                            }
-                        }
-                    } catch(e) {}
-                }
-
-                if (!htmlContent) throw new Error("Alla proxys misslyckades.");
-
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(htmlContent, "text/html");
-
-                let recipeName = '';
-                let ingredients = [];
-
-                // 1. Försök med JSON-LD (Strukturerad data - Standard)
-                const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
-                for (let script of scripts) {
-                    try {
-                        let jsonText = script.innerText.trim();
-                        let json = JSON.parse(jsonText);
-                        const nodes = Array.isArray(json) ? json : (json['@graph'] || [json]);
-                        const recipe = nodes.find(n => {
-                            const t = n['@type'];
-                            return t === 'Recipe' || (Array.isArray(t) && t.includes('Recipe'));
-                        });
-
-                        if (recipe) {
-                            recipeName = recipe.name;
-                            if (recipe.recipeIngredient) {
-                                ingredients = Array.isArray(recipe.recipeIngredient) ? recipe.recipeIngredient : [recipe.recipeIngredient];
-                            }
-                            if(recipeName && ingredients.length > 0) break; 
-                        }
-                    } catch(e) { console.log('JSON-LD parse error', e); }
-                }
-
-                // 2. Fallback: HTML-skrapning (Om JSON-LD misslyckades)
-                if (ingredients.length === 0) {
-                    if (!recipeName) {
-                        const ogTitle = doc.querySelector('meta[property="og:title"]')?.content;
-                        const h1 = doc.querySelector('h1')?.innerText;
-                        recipeName = ogTitle || h1 || '';
-                    }
-
-                    const potentialLists = doc.querySelectorAll('.ingredients-list-group__card, .ingredients-list-group, [class*="ingredient"] ul, [class*="ingredien"] li');
-                    const tempIngredients = new Set();
-                    const icaItems = doc.querySelectorAll('.ingredients-list-group__card');
-                    if(icaItems.length > 0) {
-                         icaItems.forEach(el => {
-                            let text = el.innerText.replace(/\n/g, ' ').trim();
-                            if(text) tempIngredients.add(text);
-                         });
-                    } else {
-                         potentialLists.forEach(el => {
-                            const text = el.innerText.trim().replace(/\s+/g, ' ');
-                            if (text.length > 2 && text.length < 150 && !text.toLowerCase().includes('logga in') && !text.includes('Meny')) {
-                                 tempIngredients.add(text);
-                            }
-                        });
-                    }
-                    ingredients = Array.from(tempIngredients);
-                }
-                
-                if (!recipeName) recipeName = doc.title || "Okänt recept";
-
-                if (recipeName && ingredients.length > 0) {
-                    let cleanName = recipeName.replace(/\|.*$/, '').replace(/-.*$/, '').trim(); 
-                    document.getElementById('new-name').value = cleanName;
-                    
-                    const cleanIngredients = ingredients.map(i => {
-                        return i.replace(/&amp;/g, '&')
-                                .replace(/&nbsp;/g, ' ')
-                                .replace(/\s+/g, ' ')
-                                .trim();
-                    }).filter(i => i.length > 1); 
-
-                    document.getElementById('new-ingredients').value = cleanIngredients.join(', ');
-                    
-                    showToast("Recept importerat!");
-                    window.closeImportModal();
-                } else if (recipeName) {
-                    document.getElementById('new-name').value = recipeName;
-                    showToast("Hittade titel, men inga ingredienser.");
-                    window.closeImportModal();
+        // Samla ingredienser från menyn
+        Object.values(window.currentMenu).forEach(ratt => {
+            if (ratt && ratt.ingredients) {
+                if (Array.isArray(ratt.ingredients)) {
+                    allIngredients = allIngredients.concat(ratt.ingredients);
                 } else {
-                    showToast("Kunde inte tolka sidan.");
+                    const split = ratt.ingredients.split(',').map(i => i.trim());
+                    allIngredients = allIngredients.concat(split);
                 }
-
-            } catch (e) {
-                console.error(e);
-                showToast("Kunde inte hämta (sidan blockerar åtkomst).");
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
             }
-        };
+        });
 
-            window.generateNewRoom = () => {
-    const name = prompt("Vad ska ditt mat-rum heta? (t.ex. familjen-svensson)");
-    if (name) {
-        const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-');
-        const newUrl = window.location.origin + window.location.pathname + '?rum=' + cleanName;
-        
-        alert("Ditt rum är skapat! Spara denna länk eller skicka den till familjen:\n\n" + newUrl);
-        window.location.href = newUrl;
-    }
-};
-            
-    </script>
+        // Filtrera bort dubbletter (Case insensitive)
+        const uniqueItems = [];
+        const seen = new Set();
+
+        allIngredients.forEach(item => {
+            const clean = item.toLowerCase().trim();
+            if (clean && !seen.has(clean)) {
+                seen.add(clean);
+                uniqueItems.push(item.charAt(0).toUpperCase() + item.slice(1));
+            }
+        });
+
+        // Sortera alfabetiskt
+        uniqueItems.sort();
+
+        // Rita ut
+        listContainer.innerHTML = uniqueItems.map((item, idx) => `
+            <div class="flex items-center space-x-3 p-2 border-b border-gray-50">
+                <input type="checkbox" id="check-${idx}" class="w-5 h-5 rounded text-emerald-600">
+                <label for="check-${idx}" class="text-gray-700 text-sm">${item}</label>
+            </div>
+        `).join('');
+    };
+
+    // Visa vilket rum vi är i
+    document.addEventListener('DOMContentLoaded', () => {
+        const roomDisplay = document.getElementById('room-name-display');
+        if (roomDisplay) roomDisplay.innerText = currentRoom;
+    });
+
+</script>
 </body>
 
 </html>
+
 
 
 
