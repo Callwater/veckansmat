@@ -725,31 +725,30 @@ window.checkMateoClash = async () => {
                     if (minRatt && dayData && dayData.meals) {
                         const minRattText = (minRatt.namn || "").toLowerCase();
                         
-                        dayData.meals.forEach(m => {
-                            const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
-                            
-                            // 1. Kolla först efter exakt ordmatchning (som förut)
-                            let ärKrock = minRattText.split(' ').some(ord => ord.length > 3 && skolmatText.includes(ord));
+// --- UPPDATERAD LOGIK FÖR ATT SLIPPA LUNCH 2 ---
+dayData.meals.forEach(m => {
+    // 1. HOPPA ÖVER VEGETARISKT (Lunch 2)
+    if (m.type === "Lunch 2" || m.title === "Vegetariskt") return; 
 
-                            // 2. Om ingen krock hittades, kolla via KROCK_GRUPPER (Semantisk matchning)
-                            if (!ärKrock) {
-                                KROCK_GRUPPER.forEach(grupp => {
-                                    const minHarOrd = grupp.ord.some(o => minRattText.includes(o));
-                                    const skolanHarOrd = grupp.ord.some(o => skolmatText.includes(o));
-                                    
-                                    if (minHarOrd && skolanHarOrd) {
-                                        ärKrock = true;
-                                    }
-                                });
-                            }
+    const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
+    
+    // 2. Kolla ordmatchning (minst 3 tecken)
+    let ärKrock = minRattText.split(' ').some(ord => ord.length > 3 && skolmatText.includes(ord));
 
-                            if (ärKrock) {
-                                window.detectedClashes[dag] = true;
-                                krockCount++;
-                            }
-                        });
-                    }
-                });
+    // 3. Kolla via KROCK_GRUPPER (Fisk, Pasta, Taco, etc.)
+    if (!ärKrock) {
+        KROCK_GRUPPER.forEach(grupp => {
+            const minHarOrd = grupp.ord.some(o => minRattText.includes(o));
+            const skolanHarOrd = grupp.ord.some(o => skolmatText.includes(o));
+            if (minHarOrd && skolanHarOrd) ärKrock = true;
+        });
+    }
+
+    if (ärKrock) {
+        window.detectedClashes[dag] = true;
+        krockCount++;
+    }
+});
 
                 window.renderMenuUI();
 
@@ -871,6 +870,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
