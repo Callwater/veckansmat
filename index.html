@@ -706,14 +706,14 @@ window.checkMateoClash = async () => {
 
                 // --- SMARTA KROCK-GRUPPER ---
                 // Om ETT ord från listan finns i din mat OCH ett ord finns i skolmaten = KROCK
-                const KROCK_GRUPPER = [
-                    { namn: 'Fisk', ord: ['fisk', 'lax', 'torsk', 'sej', 'spätta', 'pinnar', 'strömming', 'skaldjur'] },
-                    { namn: 'Pasta', ord: ['pasta', 'spaghetti', 'makaroner', 'lasagne', 'fusilli', 'penne', 'tortellini'] },
-                    { namn: 'Färs', ord: ['köttbullar', 'biffar', 'järpar', 'färs', 'burgare', 'palt', 'kålpudding'] },
-                    { namn: 'Kyckling', ord: ['kyckling', 'kalkon', 'fågel', 'nuggets'] },
-                    { namn: 'Korv', ord: ['korv', 'falukorv', 'chorizo', 'prinskorv'] },
-                    { namn: 'Soppa', ord: ['soppa', 'gulasch'] }
-                ];
+const KROCK_GRUPPER = [
+    { namn: 'Fisk', ord: ['fisk', 'lax', 'torsk', 'sej', 'spätta', 'pinnar'] },
+    { namn: 'Pasta', ord: ['pasta', 'spaghetti', 'makaroner', 'lasagne', 'tortellini'] },
+    { namn: 'Färs', ord: ['köttbullar', 'biffar', 'järpar', 'färs', 'burgare'] },
+    { namn: 'Kyckling', ord: ['kyckling', 'kalkon', 'nuggets'] },
+    { namn: 'Korv', ord: ['korv', 'falukorv', 'chorizo', 'prinskorv'] },
+    { namn: 'Taco', ord: ['taco', 'tortilla', 'nacho', 'enchilada', 'fajita'] } // <-- NY!
+];
 
                 vardagar.forEach((dag, index) => {
                     const dateTarget = new Date(monday);
@@ -870,6 +870,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
