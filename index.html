@@ -677,13 +677,14 @@ window.addBasvara = async () => {
 window.checkMateoClash = async () => {
             const btn = document.getElementById('clash-btn');
             const originalText = btn ? btn.innerHTML : '';
-            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Kollar krockar...'; btn.disabled = true; }
+            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...'; btn.disabled = true; }
             
             try {
                 window.detectedClashes = {}; 
                 const today = new Date();
                 const dayOfWeek = today.getDay();
                 
+                // Hitta måndag i aktuell vecka
                 let monday = new Date(today);
                 if (dayOfWeek === 6) monday.setDate(today.getDate() + 2);
                 else if (dayOfWeek === 0) monday.setDate(today.getDate() + 1);
@@ -695,69 +696,61 @@ window.checkMateoClash = async () => {
                 friday.setDate(monday.getDate() + 4);
                 const toDate = getYMD(friday);
 
-                const targetUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${fromDate}&to=${toDate}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-
-                const res = await fetch(proxyUrl);
+                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://meny-api.mateo.se/api/v1/days/565?from=${fromDate}&to=${toDate}`)}`);
                 const json = await res.json();
                 const rawMeals = json.data || json;
                 const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
                 let krockCount = 0;
 
-                // --- SMARTA KROCK-GRUPPER ---
-                // Om ETT ord från listan finns i din mat OCH ett ord finns i skolmaten = KROCK
-const KROCK_GRUPPER = [
-    { namn: 'Fisk', ord: ['fisk', 'lax', 'torsk', 'sej', 'spätta', 'pinnar'] },
-    { namn: 'Pasta', ord: ['pasta', 'spaghetti', 'makaroner', 'lasagne', 'tortellini'] },
-    { namn: 'Färs', ord: ['köttbullar', 'biffar', 'järpar', 'färs', 'burgare'] },
-    { namn: 'Kyckling', ord: ['kyckling', 'kalkon', 'nuggets'] },
-    { namn: 'Korv', ord: ['korv', 'falukorv', 'chorizo', 'prinskorv'] },
-    { namn: 'Taco', ord: ['taco', 'tortilla', 'nacho', 'enchilada', 'fajita'] } // <-- NY!
-];
+                const KROCK_GRUPPER = [
+                    { namn: 'Fisk', ord: ['fisk', 'lax', 'torsk', 'sej', 'spätta', 'pinnar', 'panerad'] },
+                    { namn: 'Pasta', ord: ['pasta', 'spaghetti', 'makaroner', 'lasagne', 'fusilli', 'penne'] },
+                    { namn: 'Färs', ord: ['köttbullar', 'biffar', 'järpar', 'färs', 'burgare'] },
+                    { namn: 'Kyckling', ord: ['kyckling', 'kalkon', 'nuggets'] },
+                    { namn: 'Korv', ord: ['korv', 'falukorv', 'chorizo', 'prinskorv'] },
+                    { namn: 'Taco', ord: ['taco', 'tortilla', 'nacho', 'enchilada', 'fajita', 'tex-mex'] }
+                ];
 
                 vardagar.forEach((dag, index) => {
-                    const dateTarget = new Date(monday);
-                    dateTarget.setDate(monday.getDate() + index);
-                    const dateStr = getYMD(dateTarget);
+                    const dateStr = new Date(monday.getTime() + (index * 86400000)).toISOString().split('T')[0];
                     const dayData = Array.isArray(rawMeals) ? rawMeals.find(d => String(d.date || "").includes(dateStr)) : null;
                     const minRatt = window.currentMenu[dag];
 
                     if (minRatt && dayData && dayData.meals) {
                         const minRattText = (minRatt.namn || "").toLowerCase();
                         
-// --- UPPDATERAD LOGIK FÖR ATT SLIPPA LUNCH 2 ---
-dayData.meals.forEach(m => {
-    // 1. HOPPA ÖVER VEGETARISKT (Lunch 2)
-    if (m.type === "Lunch 2" || m.title === "Vegetariskt") return; 
+                        dayData.meals.forEach(m => {
+                            // --- HÄR FILTRERAR VI BORT LUNCH 2 (Vegetariskt) ---
+                            if (m.type === "Lunch 2") return; 
 
-    const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
-    
-    // 2. Kolla ordmatchning (minst 3 tecken)
-    let ärKrock = minRattText.split(' ').some(ord => ord.length > 3 && skolmatText.includes(ord));
+                            const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
+                            
+                            // 1. Kolla ordmatchning
+                            let ärKrock = minRattText.split(' ').some(ord => ord.length > 3 && skolmatText.includes(ord));
+                            
+                            // 2. Kolla krockgrupper
+                            if (!ärKrock) {
+                                KROCK_GRUPPER.forEach(grupp => {
+                                    const minHarOrd = grupp.ord.some(o => minRattText.includes(o));
+                                    const skolanHarOrd = grupp.ord.some(o => skolmatText.includes(o));
+                                    if (minHarOrd && skolanHarOrd) ärKrock = true;
+                                });
+                            }
 
-    // 3. Kolla via KROCK_GRUPPER (Fisk, Pasta, Taco, etc.)
-    if (!ärKrock) {
-        KROCK_GRUPPER.forEach(grupp => {
-            const minHarOrd = grupp.ord.some(o => minRattText.includes(o));
-            const skolanHarOrd = grupp.ord.some(o => skolmatText.includes(o));
-            if (minHarOrd && skolanHarOrd) ärKrock = true;
-        });
-    }
-
-    if (ärKrock) {
-        window.detectedClashes[dag] = true;
-        krockCount++;
-    }
-});
+                            if (ärKrock) {
+                                window.detectedClashes[dag] = true;
+                                krockCount++;
+                            }
+                        });
+                    }
+                });
 
                 window.renderMenuUI();
-
-                if (krockCount > 0) showToast(`⚠️ ${krockCount} krockar hittades!`);
-                else showToast("✅ Inga krockar hittades.");
+                showToast(krockCount > 0 ? `⚠️ Hittade ${krockCount} krockar!` : "✅ Inga krockar denna vecka.");
 
             } catch (error) {
-                console.error(error);
-                showToast("Kunde inte hämta skolmaten.");
+                console.error("Fel i krock-kollen:", error);
+                showToast("Kunde inte hämta skolmat.");
             } finally {
                 if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
             }
@@ -870,6 +863,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
