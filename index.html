@@ -752,13 +752,31 @@ window.checkMateoClash = async () => {
                             }
                         });
                     }
-                    if (ärKrock) { window.detectedClashes[dag] = true; krockCount++; }
+                    if (ärKrock) { 
+    // Vi sparar namnet på rätten (t.ex. "Panerad fisk") istället för bara true
+    window.detectedClashes[dag] = m.name; 
+    krockCount++; 
+}
                 });
             }
         });
 
         window.renderMenuUI();
         showToast(krockCount > 0 ? `⚠️ Hittade ${krockCount} krockar!` : "✅ Inga krockar hittades.");
+        // ... inuti loopen i renderMenuUI ...
+const hasClash = window.detectedClashes[day];
+/////////////////
+// Uppdaterad bubbla som visar skolmatens namn:
+const clashBadge = hasClash ? `
+    <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-bold shadow-lg animate-pulse z-10 whitespace-nowrap border border-white">
+        <i class="fas fa-exclamation-triangle mr-1"></i> SKOLMAT: ${hasClash}
+    </div>` : '';
+
+resEl.innerHTML += `
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 ${isLocked ? 'border-red-400 bg-red-50/30' : 'border-emerald-500'} relative">
+        ${clashBadge}
+        `;
+/////////////////////////        
 
     } catch (error) {
         console.error(error);
@@ -875,6 +893,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
