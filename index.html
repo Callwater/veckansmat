@@ -242,6 +242,8 @@
         const SETTINGS_DOC = "basvaror";
         const CATEGORIES_DOC = "kategorier";
         const MENU_DOC = "current-menu";
+        const GLOBAL_SETTINGS_PATH = "globala_installningar";
+        const BASVAROR_DOC_NAME = "basvaror";
 
         // Variabler
         let dishes = [];
@@ -255,6 +257,22 @@
         window.currentMenu = {};
         window.lockedDays = new Set();
         window.detectedClashes = {};
+
+        window.populateClassicBasvaror = async () => {
+    const klassiskaVaror = [
+        'salt', 'peppar', 'socker', 'vetemjöl', 'rapsolja', 'olivolja', 
+        'smör', 'ägg', 'mjölk', 'pasta', 'ris', 'potatis', 
+        'gul lök', 'röd lök', 'vitlök', 'krossade tomater', 'tomatpuré', 
+        'buljongtärningar', 'ketchup', 'senap', 'soja', 'bakpulver', 
+        'vaniljsocker', 'jäst', 'havregryn', 'ströbröd', 'kakao', 'vinäger'
+    ];
+
+    if(confirm("Vill du skriva över den globala listan med klassiska basvaror?")) {
+        basvarorSet = new Set(klassiskaVaror);
+        await saveBasvarorToCloud();
+        showToast("Globala basvaror skapade!");
+    }
+};
 
         // Uppdatera UI med rumsnamn
         document.getElementById('room-header-name').innerText = currentRoom;
@@ -284,11 +302,14 @@
         });
 
         // 3. Lyssna på Basvaror
-        onSnapshot(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), (docSnap) => {
-            if (docSnap.exists() && docSnap.data().items) {
-                basvarorSet = new Set(docSnap.data().items.map(i => i.toLowerCase()));
-            }
-        });
+// Lyssna på den GLOBALA listan
+onSnapshot(doc(db, GLOBAL_SETTINGS_PATH, BASVAROR_DOC_NAME), (docSnap) => {
+    if (docSnap.exists() && docSnap.data().items) {
+        // Uppdatera den lokala listan med den gemensamma datan
+        basvarorSet = new Set(docSnap.data().items.map(i => i.toLowerCase()));
+        if (window.renderBasvarorList) renderBasvarorList();
+    }
+});
 
         // 4. Lyssna på Kategorier
         onSnapshot(doc(db, SETTINGS_COLLECTION, CATEGORIES_DOC), (docSnap) => {
@@ -594,14 +615,24 @@ function renderDishList() {
             `).join('');
         }
 
-        window.addBasvara = async () => {
-            const v = document.getElementById('new-basvara').value.trim().toLowerCase();
-            if(!v) return;
-            basvarorSet.add(v);
-            document.getElementById('new-basvara').value = '';
-            renderBasvarorList();
-            await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), { items: [...basvarorSet] });
-        };
+        // Sparar till den gemensamma mappen
+async function saveBasvarorToCloud() {
+    try {
+        await setDoc(doc(db, GLOBAL_SETTINGS_PATH, BASVAROR_DOC_NAME), { 
+            items: [...basvarorSet] 
+        });
+    } catch (e) {
+        console.error("Kunde inte spara globala basvaror:", e);
+    }
+}
+       // window.addBasvara = async () => {
+       //     const v = document.getElementById('new-basvara').value.trim().toLowerCase();
+         //   if(!v) return;
+         //   basvarorSet.add(v);
+          //  document.getElementById('new-basvara').value = '';
+          //  renderBasvarorList();
+         //   await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), { items: [...basvarorSet] });
+      //  };
 
         window.removeBasvara = async (v) => {
             basvarorSet.delete(v);
@@ -807,6 +838,7 @@ window.openSelectDishModal = (day) => {
 </body>
 
 </html>
+
 
 
 
