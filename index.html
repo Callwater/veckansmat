@@ -650,6 +650,41 @@
 
         window.closeSelectDishModal = () => document.getElementById('select-dish-modal').classList.add('hidden');
 
+        // --- SAKNAD IMPORT-FUNKTION ---
+        window.importDishes = (input) => {
+            if (!input.files[0]) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // Hanterar både list-format [] och objekt-format { dishes: [] }
+                    const rawList = Array.isArray(data) ? data : (data.dishes || data.ratter || []);
+                    
+                    if (rawList.length === 0) return alert("Filen verkar vara tom.");
+                    
+                    showToast(`Importerar ${rawList.length} recept...`);
+                    
+                    for (const d of rawList) {
+                        // Vi mappar om fälten så de matchar din nya rums-struktur
+                        await addDoc(collection(db, RECEPT_PATH), {
+                            title: d.title || d.namn || "Namnlöst",
+                            ingredients: Array.isArray(d.ingredients) ? d.ingredients : 
+                                        (d.ingredienser ? (Array.isArray(d.ingredienser) ? d.ingredienser : d.ingredienser.split(',').map(i=>i.trim())) : []),
+                            kategori: d.kategori || "övrigt",
+                            createdAt: new Date().toISOString()
+                        });
+                    }
+                    showToast("Import klar!");
+                } catch (err) {
+                    console.error("Importfel:", err);
+                    alert("Kunde inte läsa filen. Kontrollera att det är en JSON-fil.");
+                }
+            };
+            reader.readAsText(input.files[0]);
+            input.value = ''; // Nollställ knappen
+        };
     </script>
 </body>
+
 </html>
