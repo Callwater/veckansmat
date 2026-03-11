@@ -335,7 +335,53 @@ window.addTestDish = async () => {
     }
 };
 
+// 1. Lyssnaren som håller koll på molnet
+    onSnapshot(collection(db, RECEPT_PATH), (snapshot) => {
+        window.dishes = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log("Uppdaterar listan...");
+        renderDishList(); 
+    });
 
+    // 2. Funktionen som ritar ut recepten på skärmen
+    function renderDishList() {
+        const listElement = document.getElementById('dish-list');
+        if (!listElement) return;
+
+        if (!window.dishes || window.dishes.length === 0) {
+            listElement.innerHTML = `<p class="p-8 text-gray-500 text-center">Rummet "${currentRoom}" är tomt.</p>`;
+            return;
+        }
+
+        listElement.innerHTML = window.dishes.map(dish => {
+            const ingText = Array.isArray(dish.ingredients) 
+                ? dish.ingredients.join(', ') 
+                : (dish.ingredients || "");
+
+            return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-3 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-gray-800">${dish.title}</h3>
+                        <p class="text-xs text-gray-500">${ingText}</p>
+                    </div>
+                    <button onclick="window.deleteDish('${dish.id}')" class="text-red-300 p-2">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 3. Funktionen för att radera
+    window.deleteDish = async (id) => {
+        if (confirm("Ta bort recept?")) {
+            await deleteDoc(doc(db, RECEPT_PATH, id));
+        }
+    };
+
+    
 
         let app, db;
         try { app = initializeApp(firebaseConfig); db = getFirestore(app); } 
@@ -1309,6 +1355,7 @@ function generateShoppingList(ing) {
 </body>
 
 </html>
+
 
 
 
