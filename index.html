@@ -309,7 +309,141 @@
             measurementId: "G-01R2YNNJ8V"
         };
 
-        // 1. Hämta rumsnamnet från URL (?rum=mitt-kok) eller använd 'standard'
+
+
+    
+
+        let app, db;
+        try { app = initializeApp(firebaseConfig); db = getFirestore(app); } 
+        catch (e) { console.error("Firebase Error", e); document.getElementById('connection-status').innerHTML = '<i class="fas fa-exclamation-circle text-red-300"></i> Init Error'; }
+
+        const COLLECTION_NAME = "ratter";
+        const SETTINGS_COLLECTION = "inställningar";
+        const SETTINGS_DOC = "basvaror";
+        const CATEGORIES_DOC = "customCategories";
+
+        // 2. INITIALISERING OCH RUMS-LOGIK
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentRoom = urlParams.get('rum') || 'standard';
+
+    // Globala sökvägar - Dessa använder vi överallt nu
+    const RECEPT_PATH = `rum/${currentRoom}/recept`;
+    const SETTINGS_PATH = `rum/${currentRoom}/settings`;
+    const MENU_DOC_ID = "current-menu";
+
+    // Globala variabler för appen
+    window.dishes = [];
+    window.currentMenu = {};
+    window.lockedDays = new Set();
+
+    // 3. HÄMTA DATA I REALTID (onSnapshot)
+    // Denna lyssnar på recepten i det specifika rummet
+    onSnapshot(collection(db, RECEPT_PATH), (snapshot) => {
+        window.dishes = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log(`Laddat ${window.dishes.length} recept från rum: ${currentRoom}`);
+        renderDishList();
+    });
+
+    // Denna lyssnar på veckomenyn i det specifika rummet
+    onSnapshot(doc(db, SETTINGS_PATH, MENU_DOC_ID), (docSnap) => {
+        if (docSnap.exists()) {
+            window.currentMenu = docSnap.data();
+            renderMenuUI();
+        }
+    });
+
+    // 4. RENDERING AV RECEPT (Hanterar Array för ingredienser)
+    window.renderDishList = () => {
+        const listElement = document.getElementById('dish-list');
+        if (!listElement) return;
+
+        // Sortera alfabetiskt
+        const sorted = [...window.dishes].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+        listElement.innerHTML = sorted.map(dish => {
+            // Om ingredienser är en lista (Array), gör om till text för förhandsvisning
+            const ingPreview = Array.isArray(dish.ingredients) 
+                ? dish.ingredients.join(', ') 
+                : (dish.ingredients || "");
+
+            return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-2 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-gray-800">${dish.title || 'Namnlös'}</h3>
+                        <p class="text-xs text-gray-500 line-clamp-1">${ingPreview}</p>
+                        <p class="text-[10px] text-emerald-600 font-bold uppercase mt-1">${dish.kategori || 'övrigt'}</p>
+                    </div>
+                    <button onclick="window.deleteDish('${dish.id}')" class="text-red-300 hover:text-red-500 p-2">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+    };
+
+    // 5. RADERA RECEPT
+    window.deleteDish = async (id) => {
+        if (confirm("Vill du ta bort detta recept?")) {
+            await deleteDoc(doc(db, RECEPT_PATH, id));
+        }
+    };
+
+    // 6. GENERERA HANDLINGSLISTA (Tar bort dubbletter)
+    window.generateShoppingList = () => {
+        const listContainer = document.getElementById('shopping-list-items');
+        if (!listContainer) return;
+
+        let allIngredients = [];
+        
+        // Samla ingredienser från menyn
+        Object.values(window.currentMenu).forEach(ratt => {
+            if (ratt && ratt.ingredients) {
+                if (Array.isArray(ratt.ingredients)) {
+                    allIngredients = allIngredients.concat(ratt.ingredients);
+                } else {
+                    const split = ratt.ingredients.split(',').map(i => i.trim());
+                    allIngredients = allIngredients.concat(split);
+                }
+            }
+        });
+
+        // Filtrera bort dubbletter (Case insensitive)
+        const uniqueItems = [];
+        const seen = new Set();
+
+        allIngredients.forEach(item => {
+            const clean = item.toLowerCase().trim();
+            if (clean && !seen.has(clean)) {
+                seen.add(clean);
+                uniqueItems.push(item.charAt(0).toUpperCase() + item.slice(1));
+            }
+        });
+
+        // Sortera alfabetiskt
+        uniqueItems.sort();
+
+        // Rita ut
+        listContainer.innerHTML = uniqueItems.map((item, idx) => `
+            <div class="flex items-center space-x-3 p-2 border-b border-gray-50">
+                <input type="checkbox" id="check-${idx}" class="w-5 h-5 rounded text-emerald-600">
+                <label for="check-${idx}" class="text-gray-700 text-sm">${item}</label>
+            </div>
+        `).join('');
+    };
+
+    // Visa vilket rum vi är i
+    document.addEventListener('DOMContentLoaded', () => {
+        const roomDisplay = document.getElementById('room-name-display');
+        if (roomDisplay) roomDisplay.innerText = currentRoom;
+    });
+
+                // 1. Hämta rumsnamnet från URL (?rum=mitt-kok) eller använd 'standard'
 const urlParams = new URLSearchParams(window.location.search);
 const currentRoom = urlParams.get('rum') || 'standard';
 
@@ -380,17 +514,6 @@ window.addTestDish = async () => {
             await deleteDoc(doc(db, RECEPT_PATH, id));
         }
     };
-
-    
-
-        let app, db;
-        try { app = initializeApp(firebaseConfig); db = getFirestore(app); } 
-        catch (e) { console.error("Firebase Error", e); document.getElementById('connection-status').innerHTML = '<i class="fas fa-exclamation-circle text-red-300"></i> Init Error'; }
-
-        const COLLECTION_NAME = "ratter";
-        const SETTINGS_COLLECTION = "inställningar";
-        const SETTINGS_DOC = "basvaror";
-        const CATEGORIES_DOC = "customCategories";
 
         let dishes = [];
         let editingId = null;
