@@ -335,60 +335,7 @@ window.addTestDish = async () => {
     }
 };
 
-        // 1. Lyssnaren (onSnapshot)
-        // Denna körs automatiskt varje gång ett recept läggs till eller tas bort i ditt rum
-        onSnapshot(collection(db, RECEPT_PATH), (snapshot) => {
-            window.dishes = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            
-            console.log("Uppdaterar listan med", window.dishes.length, "recept.");
-            renderDishList(); // Anropa rit-funktionen
-        });
 
-        // 2. Renderings-funktionen
-        function renderDishList() {
-            const listElement = document.getElementById('dish-list');
-            if (!listElement) return;
-
-            if (window.dishes.length === 0) {
-                listElement.innerHTML = `<p class="text-gray-500 text-center py-10">Rummet "${currentRoom}" är tomt. Klicka på testknappen!</p>`;
-                return;
-            }
-
-            // Sortera alfabetiskt på titel
-            const sorted = [...window.dishes].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-
-            listElement.innerHTML = sorted.map(dish => {
-                // Fix för ingredienser (Array -> Text)
-                const ingText = Array.isArray(dish.ingredients) 
-                    ? dish.ingredients.join(', ') 
-                    : (dish.ingredients || "Inga ingredienser");
-
-                return `
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-3 flex justify-between items-center">
-                        <div>
-                            <h3 class="font-bold text-gray-800">${dish.title}</h3>
-                            <p class="text-xs text-gray-500 line-clamp-1">${ingText}</p>
-                            <span class="text-[10px] font-bold text-emerald-600 uppercase mt-1 inline-block">
-                                ${dish.kategori || 'övrigt'}
-                            </span>
-                        </div>
-                        <button onclick="window.deleteDish('${dish.id}')" class="text-red-300 hover:text-red-500 p-2">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // 3. En enkel radera-funktion så vi kan städa
-        window.deleteDish = async (id) => {
-            if (confirm("Vill du ta bort receptet?")) {
-                await deleteDoc(doc(db, RECEPT_PATH, id));
-            }
-        };
 
         let app, db;
         try { app = initializeApp(firebaseConfig); db = getFirestore(app); } 
@@ -1362,6 +1309,7 @@ function generateShoppingList(ing) {
 </body>
 
 </html>
+
 
 
 
