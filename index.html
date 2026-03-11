@@ -601,15 +601,97 @@
         };
 
         // Skolmat-krock-funktion (behåll din befintliga logik men koppla till nya UI:t)
-        window.checkMateoClash = async () => {
+window.checkMateoClash = async () => {
             const btn = document.getElementById('clash-btn');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...';
-            // Här simulerar vi en sökning. Du kan klistra in din Mateo-fetch här om du vill.
-            setTimeout(() => {
-                btn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Klar';
-                showToast("Skolmaten jämförd!");
-                window.renderMenuUI();
-            }, 1000);
+            const originalText = btn.innerHTML;
+            if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Kollar skolmat...'; btn.disabled = true; }
+            
+            try {
+                window.detectedClashes = {}; 
+                const today = new Date();
+                const dayOfWeek = today.getDay();
+                
+                // Hitta måndagen i nuvarande vecka
+                let monday = new Date(today);
+                if (dayOfWeek === 6) { monday.setDate(today.getDate() + 2); } 
+                else if (dayOfWeek === 0) { monday.setDate(today.getDate() + 1); } 
+                else { monday.setDate(today.getDate() - (dayOfWeek - 1)); }
+                
+                const getYMD = (d) => {
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                };
+
+                const fromDate = getYMD(monday);
+                const friday = new Date(monday); 
+                friday.setDate(monday.getDate() + 4);
+                const toDate = getYMD(friday);
+
+                // Vi använder Strömsunds ID (565) som standard om inget annat angetts
+                const targetUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${fromDate}&to=${toDate}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+                const res = await fetch(proxyUrl);
+                if (!res.ok) throw new Error("Kunde inte nå mat-servern.");
+                
+                const json = await res.json();
+                const rawMeals = json.data || json;
+                const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
+                let krockCount = 0;
+
+                // Ord som vi ignorerar för att inte få "falska" krockar (t.ex. att båda har ris)
+                const stoppOrd = ['ris', 'potatis', 'pasta', 'makaroner', 'mos', 'med', 'och', 'till', 'sås', 'stekt', 'kokt'];
+
+                vardagar.forEach((dag, index) => {
+                    const dateTarget = new Date(monday);
+                    dateTarget.setDate(monday.getDate() + index);
+                    const dateStr = getYMD(dateTarget);
+                    
+                    const dayData = Array.isArray(rawMeals) 
+                        ? rawMeals.find(d => String(d.date || "").includes(dateStr)) 
+                        : null;
+                        
+                    // Hämta din rätt för dagen från det nya rums-objektet
+                    const minRatt = window.currentMenu[dag];
+
+                    if (minRatt && dayData && dayData.meals) {
+                        const minRattNamn = (minRatt.namn || "").toLowerCase();
+                        
+                        // Kolla mot skolans alla rätter den dagen
+                        dayData.meals.forEach(m => {
+                            const skolmatText = ((m.name || "") + " " + (m.description || "")).toLowerCase();
+                            
+                            // Dela upp ditt namn i sökord (t.ex. "Köttbullar" och "makaroner")
+                            const sökOrd = minRattNamn.split(/[\s,.-]+/)
+                                .filter(o => o.length >= 3 && !stoppOrd.includes(o));
+                            
+                            // Om något av dina viktiga ord finns i skolmatens beskrivning = KROCK
+                            const ärKrock = sökOrd.some(ord => skolmatText.includes(ord));
+
+                            if (ärKrock) {
+                                window.detectedClashes[dag] = true;
+                                krockCount++;
+                            }
+                        });
+                    }
+                });
+
+                window.renderMenuUI(); // Rita om för att visa varnings-bubblorna
+
+                if (krockCount > 0) {
+                    showToast(`⚠️ Hittade ${krockCount} krockar med skolmaten!`);
+                } else {
+                    showToast("✅ Inga krockar med skolmaten denna vecka.");
+                }
+
+            } catch (error) {
+                console.error("Fel:", error);
+                showToast("Kunde inte hämta skolmaten.");
+            } finally {
+                if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+            }
         };
 
         window.exportDishes = () => {
@@ -688,3 +770,4 @@
 </body>
 
 </html>
+
