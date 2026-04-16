@@ -140,21 +140,30 @@
             <div id="all-dishes-list" class="grid gap-3"></div>
         </section>
 
-        <section id="view-settings" class="hidden space-y-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                <h3 class="font-bold text-slate-800">Rum & Backup</h3>
-                <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
-                    <span class="text-xs font-semibold text-emerald-800 uppercase tracking-tighter">Aktivt Rum</span>
-                    <span id="room-id-val" class="text-sm font-bold text-emerald-600">Standard</span>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="window.app.exportJSON()" class="p-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">Exportera</button>
-                    <button onclick="document.getElementById('import-file').click()" class="p-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">Importera</button>
-                </div>
-                <input type="file" id="import-file" class="hidden" accept=".json" onchange="window.app.importJSON(this)">
-            </div>
-        </section>
+<section id="view-settings" class="hidden space-y-6">
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+        <h3 class="font-bold text-slate-800">Rum & Backup</h3>
+        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-800 uppercase tracking-tighter">Aktivt Rum</span>
+            <span id="room-id-val" class="text-sm font-bold text-emerald-600">Standard</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="window.app.exportJSON()" class="p-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">Exportera</button>
+            <button onclick="document.getElementById('import-file').click()" class="p-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">Importera</button>
+        </div>
+        <input type="file" id="import-file" class="hidden" accept=".json" onchange="window.app.importJSON(this)">
+    </div>
 
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 mt-6">
+        <h3 class="font-bold text-slate-800">Mina Butikskategorier</h3>
+        <div class="flex gap-2">
+            <input type="text" id="new-custom-cat" class="flex-grow p-3 bg-slate-50 border-none rounded-xl text-sm outline-none" placeholder="T.ex. Husdjur">
+            <button onclick="window.app.addCategory()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold">Lägg till</button>
+        </div>
+        <div id="custom-categories-list" class="flex flex-wrap gap-2"></div>
+    </div>
+</section>
+        
         <div id="category-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in duration-200">
         <h3 class="text-lg font-bold text-slate-800 mb-1">Ändra kategori</h3>
@@ -222,22 +231,58 @@
             document.getElementById(`tab-${tab}`).classList.add('text-emerald-600', 'border-emerald-600', 'bg-emerald-50');
         },
 
-        // --- KATEGORIHANTERING ---
-        openCategoryModal(itemName) {
-            state.itemToEdit = itemName.toLowerCase();
-            const modal = document.getElementById('category-modal');
-            const select = document.getElementById('cat-edit-select');
-            document.getElementById('cat-edit-item-name').innerText = itemName;
-            
-            const categories = ['Frukt & Grönt', 'Mejeri', 'Kött/Fisk', 'Chark', 'Skafferi', 'Fryst', 'Dryck', 'Basvaror', 'Övrigt'];
-            const currentCat = state.basvaror.has(state.itemToEdit) ? 'Basvaror' : (state.customCategories[state.itemToEdit] || 'Övrigt');
+        // --- NYA FUNKTIONER FÖR EGNA KATEGORIER ---
+        async addCategory() {
+            const input = document.getElementById('new-custom-cat');
+            const name = input.value.trim();
+            if(!name) return;
+            if(!state.availableCategories) state.availableCategories = [];
+            if(state.availableCategories.includes(name)) return this.notify("Finns redan.");
 
-            select.innerHTML = categories.map(cat => `
-                <option value="${cat}" ${cat === currentCat ? 'selected' : ''}>${cat}</option>
-            `).join('');
-
-            modal.classList.remove('hidden');
+            state.availableCategories.push(name);
+            await setDoc(doc(db, "globala_inställningar", "inställningar"), { categories: state.availableCategories });
+            input.value = '';
+            this.notify("Kategori tillagd!");
         },
+
+        async removeCategory(name) {
+            if(confirm(`Ta bort "${name}"?`)) {
+                state.availableCategories = state.availableCategories.filter(c => c !== name);
+                await setDoc(doc(db, "globala_inställningar", "inställningar"), { categories: state.availableCategories });
+            }
+        },
+
+        renderSettingsCategories() {
+            const container = document.getElementById('custom-categories-list');
+            if(!container) return;
+            container.innerHTML = (state.availableCategories || []).map(cat => `
+                <div class="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                    ${cat} <button onclick="window.app.removeCategory('${cat}')" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+                </div>
+            `).join('');
+        },
+
+        // --- KATEGORIHANTERING ---
+openCategoryModal(itemName) {
+    state.itemToEdit = itemName.toLowerCase();
+    const modal = document.getElementById('category-modal');
+    const select = document.getElementById('cat-edit-select');
+    document.getElementById('cat-edit-item-name').innerText = itemName;
+    
+    // Standardkategorier
+    const defaultCats = ['Frukt & Grönt', 'Mejeri', 'Kött/Fisk', 'Chark', 'Skafferi', 'Fryst', 'Dryck', 'Basvaror', 'Övrigt'];
+    
+    // Slå ihop med dina egna från 'Mer'-fliken
+    const allPossibleCats = [...new Set([...defaultCats, ...(state.availableCategories || [])])];
+
+    const currentCat = state.basvaror.has(state.itemToEdit) ? 'Basvaror' : (state.customCategories[state.itemToEdit] || 'Övrigt');
+
+    select.innerHTML = allPossibleCats.sort().map(cat => `
+        <option value="${cat}" ${cat === currentCat ? 'selected' : ''}>${cat}</option>
+    `).join('');
+
+    modal.classList.remove('hidden');
+},
 
         async saveCategoryChange() {
             const newCat = document.getElementById('cat-edit-select').value;
@@ -468,8 +513,8 @@ uniqueIngs.forEach(ing => {
     
     // FIX: Om kategorin i databasen fortfarande heter "Grönt", 
     // tvinga den att räknas som "Frukt och Grönt" i programmet.
-    if (userChosenCat === 'Grönt') {
-        userChosenCat = 'Frukt och Grönt';
+if (userChosenCat === 'Grönt' || userChosenCat === 'Frukt och Grönt') {
+    userChosenCat = 'Frukt & Grönt';
     }
 
     // --- NU BÖRJAR SORTERINGEN ---
@@ -560,7 +605,9 @@ uniqueIngs.forEach(ing => {
     onSnapshot(doc(db, PATHS.menu), snap => { if(snap.exists()) { state.currentMenu = snap.data(); window.app.renderMenu(); } });
     onSnapshot(doc(db, "globala_inställningar", "kategorier"), snap => { if(snap.exists()) { state.customCategories = snap.data().map || {}; window.app.renderMenu(); } });
     onSnapshot(doc(db, "globala_inställningar", "basvaror"), snap => { if(snap.exists()) { state.basvaror = new Set(snap.data().items.map(i => i.toLowerCase())); window.app.renderMenu(); } });
+    onSnapshot(doc(db, "globala_inställningar", "inställningar"), snap => { if(snap.exists()) { state.availableCategories = snap.data().categories || []; if(window.app.renderSettingsCategories) window.app.renderSettingsCategories();window.app.renderMenu(); } });
 
+    
     // Bootstrap
     window.app.showTab('menu');
 </script>
