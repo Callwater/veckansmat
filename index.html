@@ -464,10 +464,9 @@ async checkSchoolClashes() {
                     const schoolDays = Array.isArray(data) ? data : (data.data || []);
                     state.clashes = {};
 
-                    // --- SMART FILTERING: ORD VI IGNORERAR ---
-                    // Dessa ord får inte trigga en krock på egen hand.
+                    // --- SMART FILTERING: NU UTAN PASTA ---
                     const ignoredWords = [
-                        'potatis', 'potatismos', 'ris', 'pasta', 'makaroner', 'bulgur', 'couscous', 
+                        'potatis', 'potatismos', 'ris', 'bulgur', 'couscous', 
                         'stuvad', 'stuvade', 'stuvning', 'kokt', 'kokta', 'stekt', 'stekta', 
                         'ugnsbakad', 'ugnsbakade', 'med', 'till', 'serveras', 'sås', 'krämig', 
                         'filé', 'panerad', 'sprödbakad', 'bitar', 'gratäng'
@@ -482,23 +481,19 @@ async checkSchoolClashes() {
                         const homeDish = state.currentMenu[dayName];
                         if (!homeDish) return;
 
-                        // Skapa sökord från hemmatemat och filtrera bort "tråkiga" ord
-                        const homeKeywords = homeDish.namn.toLowerCase()
-                            .replace(/[^a-zåäö ]/g, " ")
-                            .split(" ")
+                        const homeDishClean = homeDish.namn.toLowerCase().replace(/[^a-zåäö ]/g, " ");
+                        const homeKeywords = homeDishClean.split(" ")
                             .filter(w => w.length > 3 && !ignoredWords.includes(w));
 
-                        // Hitta huvudrätten (Lunch 1)
                         const mainMeal = schoolDay.meals.find(m => m.type === "Lunch 1");
 
                         if (mainMeal) {
                             const schoolMealName = mainMeal.name.toLowerCase();
                             
-                            // Kolla om något av de VIKTIGA orden krockar
+                            // 1. Kolla vanliga sökord (inklusive Pasta nu!)
                             const isMatch = homeKeywords.some(word => schoolMealName.includes(word));
 
-                            // SPECIALKOLL FÖR FISK: 
-                            // Om hemmatemat innehåller ordet "fisk" och skolan serverar en fisk-sort
+                            // 2. Fisk-koll
                             const fishTypes = ['sej', 'torsk', 'lax', 'spätta', 'fisk', 'strömming'];
                             const homeHasFish = homeDish.namn.toLowerCase().includes('fisk');
                             const schoolHasFish = fishTypes.some(type => schoolMealName.includes(type));
@@ -514,7 +509,6 @@ async checkSchoolClashes() {
                     this.notify(count > 0 ? `${count} krockar hittade!` : "Inga krockar hittades.");
                     
                 } catch(e) { 
-                    console.error("Skolkollen misslyckades:", e);
                     this.notify("Kunde inte hämta skolmaten."); 
                 } finally { 
                     btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; 
