@@ -443,10 +443,7 @@ async checkSchoolClashes() {
                 const btn = document.getElementById('clash-btn');
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...';
                 
-                console.log("--- STARTAR SKOLKOLLEN ---");
-
                 try {
-                    // 1. Datumhantering
                     const today = new Date();
                     const dayOfWeek = today.getDay(); 
                     const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -460,46 +457,53 @@ async checkSchoolClashes() {
                         weekDates[name] = d.toISOString().split('T')[0];
                     });
 
-                    // 2. Hämta data via proxy
                     const apiUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
                     const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
                     const data = await res.json();
                     
-                    // FIX: Hantera både om svaret är en lista direkt eller ligger i .data
                     const schoolDays = Array.isArray(data) ? data : (data.data || []);
-                    console.log("Bearbetar skoldagar:", schoolDays);
-
                     state.clashes = {};
 
-                    // 3. Jämför dag för dag
+                    // --- SMART FILTERING: ORD VI IGNORERAR ---
+                    // Dessa ord får inte trigga en krock på egen hand.
+                    const ignoredWords = [
+                        'potatis', 'potatismos', 'ris', 'pasta', 'makaroner', 'bulgur', 'couscous', 
+                        'stuvad', 'stuvade', 'stuvning', 'kokt', 'kokta', 'stekt', 'stekta', 
+                        'ugnsbakad', 'ugnsbakade', 'med', 'till', 'serveras', 'sås', 'krämig', 
+                        'filé', 'panerad', 'sprödbakad', 'bitar', 'gratäng'
+                    ];
+
                     ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'].forEach(dayName => {
                         const targetDate = weekDates[dayName];
-                        // Leta efter rätt datum i listan vi fick
                         const schoolDay = schoolDays.find(d => d.date && d.date.includes(targetDate));
                         
-                        if (!schoolDay) {
-                            console.log(`Ingen skolmat hittad för ${dayName} (${targetDate})`);
-                            return;
-                        }
+                        if (!schoolDay || !schoolDay.meals) return;
 
                         const homeDish = state.currentMenu[dayName];
                         if (!homeDish) return;
 
-                        // Skapa sökord (T.ex. "Pasta med skinksås" -> ["pasta", "skinksås"])
+                        // Skapa sökord från hemmatemat och filtrera bort "tråkiga" ord
                         const homeKeywords = homeDish.namn.toLowerCase()
                             .replace(/[^a-zåäö ]/g, " ")
                             .split(" ")
-                            .filter(w => w.length > 3 && w !== "med");
-                        
+                            .filter(w => w.length > 3 && !ignoredWords.includes(w));
+
                         // Hitta huvudrätten (Lunch 1)
-                        const mainMeal = schoolDay.meals && schoolDay.meals.find(m => m.type === "Lunch 1");
+                        const mainMeal = schoolDay.meals.find(m => m.type === "Lunch 1");
 
                         if (mainMeal) {
                             const schoolMealName = mainMeal.name.toLowerCase();
                             
+                            // Kolla om något av de VIKTIGA orden krockar
                             const isMatch = homeKeywords.some(word => schoolMealName.includes(word));
-                            if (isMatch) {
-                                console.log(`!!! KROCK HITTAD på ${dayName}: ${mainMeal.name}`);
+
+                            // SPECIALKOLL FÖR FISK: 
+                            // Om hemmatemat innehåller ordet "fisk" och skolan serverar en fisk-sort
+                            const fishTypes = ['sej', 'torsk', 'lax', 'spätta', 'fisk', 'strömming'];
+                            const homeHasFish = homeDish.namn.toLowerCase().includes('fisk');
+                            const schoolHasFish = fishTypes.some(type => schoolMealName.includes(type));
+                            
+                            if (isMatch || (homeHasFish && schoolHasFish)) {
                                 state.clashes[dayName] = mainMeal.name;
                             }
                         }
@@ -510,7 +514,7 @@ async checkSchoolClashes() {
                     this.notify(count > 0 ? `${count} krockar hittade!` : "Inga krockar hittades.");
                     
                 } catch(e) { 
-                    console.error("FEL I SKOLKOLLEN:", e);
+                    console.error("Skolkollen misslyckades:", e);
                     this.notify("Kunde inte hämta skolmaten."); 
                 } finally { 
                     btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; 
