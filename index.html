@@ -90,7 +90,7 @@
             <div id="action-bar" class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200 text-center no-print">
                 <h2 class="text-sm font-semibold text-slate-500 mb-3 italic">Planera din vecka med ett klick</h2>
                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="window.app.generateMenu()" class="bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:bg-emerald-700 active:scale-95 transition-all">
+                    <button onclick=".app.generateMenu()" class="bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:bg-emerald-700 active:scale-95 transition-all">
                         <i class="fas fa-dice mr-2"></i> Slumpa
                     </button>
                     <button id="clash-btn" onclick="window.app.checkSchoolClashes()" class="bg-white text-emerald-700 border border-emerald-200 font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-emerald-50 active:scale-95 transition-all">
@@ -257,6 +257,58 @@
                 document.getElementById('new-name').value = '';
                 document.getElementById('new-ingredients').value = '';
                 document.getElementById('form-title').innerText = "Skapa Recept";
+            },
+
+            // --- BACKUP-FUNKTIONER (Klistra in här) ---
+            
+            async importJSON(input) {
+                if (!input.files[0]) return;
+                
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        // Hanterar både list-format [] och objekt-format { dishes: [] }
+                        const rawList = Array.isArray(data) ? data : (data.dishes || data.ratter || []);
+                        
+                        if (rawList.length === 0) return this.notify("Filen är tom.");
+                        
+                        this.notify(`Importerar ${rawList.length} recept...`);
+                        
+                        for (const d of rawList) {
+                            // Vi mappar om fälten så de matchar din nya struktur
+                            await addDoc(collection(db, PATHS.dishes), {
+                                namn: d.namn || d.title || "Namnlöst",
+                                ingredienser: Array.isArray(d.ingredienser) ? d.ingredienser : 
+                                             (d.ingredients ? (Array.isArray(d.ingredients) ? d.ingredients : d.ingredients.split(',').map(i=>i.trim())) : []),
+                                kategori: d.kategori || "övrigt",
+                                createdAt: new Date().toISOString()
+                            });
+                        }
+                        this.notify("Import klar!");
+                    } catch (err) {
+                        console.error("Importfel:", err);
+                        alert("Kunde inte läsa filen. Kontrollera att det är en JSON-fil.");
+                    }
+                };
+                reader.readAsText(input.files[0]);
+                input.value = ''; // Nollställ knappen
+            },
+
+            exportJSON() {
+                if (state.dishes.length === 0) return this.notify("Inga recept att exportera.");
+                
+                // Vi tvättar bort Firebase-ID:n innan export för en ren fil
+                const cleanData = state.dishes.map(({id, ...rest}) => rest);
+                const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                
+                a.href = url;
+                a.download = `veckomeny_backup_${state.room}_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.notify("Backup sparad!");
             },
 
             // Menu Generation
