@@ -437,31 +437,69 @@
                 this.renderMenu();
             },
 
-            async checkSchoolClashes() {
+
+            // Krock koll med skola 
+async checkSchoolClashes() {
                 const btn = document.getElementById('clash-btn');
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...';
+                
                 try {
+                    // 1. Beräkna datum för innevarande vecka
                     const today = new Date();
-                    const monday = new Date(today.setDate(today.getDate() - today.getDay() + 1)).toISOString().split('T')[0];
-                    const friday = new Date(today.setDate(today.getDate() + 4)).toISOString().split('T')[0];
-                    const url = `https://meny-api.mateo.se/api/v1/days/565?from=${monday}&to=${friday}`;
-                    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-                    const data = JSON.parse((await res.json()).contents);
+                    const dayOfWeek = today.getDay(); 
+                    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                    
+                    const mondayDate = new Date(today);
+                    mondayDate.setDate(today.getDate() + diffToMonday);
+                    
+                    const mondayStr = mondayDate.toISOString().split('T')[0];
+                    const fridayDate = new Date(mondayDate);
+                    fridayDate.setDate(mondayDate.getDate() + 4);
+                    const fridayStr = fridayDate.toISOString().split('T')[0];
+
+                    // 2. Hämta data via en ny stabilare proxy (corsproxy.io)
+                    const apiUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${mondayStr}&to=${fridayStr}`;
+                    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
+                    
+                    if (!res.ok) throw new Error("Proxy-fel");
+                    const data = await res.json();
+
                     state.clashes = {};
-                    ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'].forEach((day, i) => {
-                        const school = data.data[i]?.meals || [];
-                        const home = state.currentMenu[day]?.namn?.toLowerCase();
-                        if(home) {
-                            school.forEach(m => {
-                                if(m.type === "Lunch 1" && home.split(' ').some(w => w.length > 3 && m.name.toLowerCase().includes(w))) {
-                                    state.clashes[day] = m.name;
-                                }
-                            });
+
+                    // 3. Jämför hemmatemat med skolmaten
+                    ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'].forEach((dayName, i) => {
+                        const schoolDay = data.data && data.data[i];
+                        if (!schoolDay || !schoolDay.meals) return;
+
+                        const homeDish = state.currentMenu[dayName];
+                        if (!homeDish) return;
+                        const homeDishName = homeDish.namn.toLowerCase();
+
+                        // Hitta BARA huvudrätten (Lunch 1)
+                        const mainMeal = schoolDay.meals.find(m => m.type === "Lunch 1");
+
+                        if (mainMeal) {
+                            const schoolMealName = mainMeal.name.toLowerCase();
+                            
+                            // Splitta namnet på ord (t.ex. "fisk", "pasta") och kolla efter match
+                            const keywords = homeDishName.split(' ').filter(w => w.length > 3);
+                            const isMatch = keywords.some(word => schoolMealName.includes(word));
+
+                            if (isMatch) {
+                                state.clashes[dayName] = mainMeal.name;
+                            }
                         }
                     });
+
                     this.renderMenu();
-                } catch(e) { this.notify("Nätverksfel."); }
-                finally { btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; }
+                    this.notify(Object.keys(state.clashes).length > 0 ? "Krockar hittade!" : "Inga krockar hittades.");
+                    
+                } catch(e) { 
+                    console.error("Skolkollen misslyckades:", e);
+                    this.notify("Kunde inte hämta skolmaten just nu."); 
+                } finally { 
+                    btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; 
+                }
             },
 
             renderMenu() {
