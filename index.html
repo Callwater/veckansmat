@@ -229,7 +229,7 @@
             const select = document.getElementById('cat-edit-select');
             document.getElementById('cat-edit-item-name').innerText = itemName;
             
-            const categories = ['Grönt', 'Mejeri', 'Kött/Fisk', 'Chark', 'Skafferi', 'Fryst', 'Dryck', 'Basvaror', 'Övrigt'];
+            const categories = ['Frukt & Grönt', 'Mejeri', 'Kött/Fisk', 'Chark', 'Skafferi', 'Fryst', 'Dryck', 'Basvaror', 'Övrigt'];
             const currentCat = state.basvaror.has(state.itemToEdit) ? 'Basvaror' : (state.customCategories[state.itemToEdit] || 'Övrigt');
 
             select.innerHTML = categories.map(cat => `
@@ -440,7 +440,7 @@ generateShoppingList() {
 
             // VIKTIGT: Alla kategorier från din modal måste finnas här för att kunna ta emot varor
             const cats = { 
-                'Grönt': [], 
+                'Frukt & Grönt': [], 
                 'Mejeri': [], 
                 'Kött/Fisk': [], 
                 'Chark': [], 
@@ -452,10 +452,20 @@ generateShoppingList() {
             };
 
             const keywords = { 
-                'Grönt': ['tomat','gurka','lök','sallad','kål','morot','paprika','citron'], 
+                'Frukt & Grönt': ['tomat','gurka','lök','sallad','kål','morot','paprika','citron'], 
                 'Mejeri': ['mjölk','ost','ägg','smör','grädde','fraiche','yoghurt'], 
                 'Kött/Fisk': ['lax','färs','kyckling','bacon','skinka','biff','torsk'] 
             };
+
+            // Inuti generateShoppingList, precis innan [...new Set(all.map(...
+const uniqueIngs = [...new Set(all.map(i => i.toLowerCase().trim()))];
+
+uniqueIngs.forEach(ing => {
+    let userChosenCat = state.customCategories[ing];
+    
+    // FIX: Om varan är sparad som "Grönt", tvinga den till "Frukt och Grönt"
+    if (userChosenCat === 'Grönt') userChosenCat = 'Frukt och Grönt';
+    
 
             // Rensa dubbletter och loopa
             [...new Set(all.map(i => i.toLowerCase().trim()))].forEach(ing => {
