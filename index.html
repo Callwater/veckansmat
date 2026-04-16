@@ -35,56 +35,45 @@
 
         .menu-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
 
-        /* --- PRINT LOGIK --- */
-@media print {
-    /* Dölj allt som inte ska med på papper */
-    .no-print, nav, header, #action-bar, button, .fas.fa-tag, input[type="checkbox"] { 
-        display: none !important; 
-    }
-    
-    body { 
-        background: white !important; 
-        color: black !important;
-        overflow: visible !important;
-        height: auto !important;
-    }
-    
-    main { 
-        padding: 0 !important; 
-        max-width: 100% !important;
-        overflow: visible !important;
-    }
-
-    #view-menu { display: block !important; }
-
-    /* Matsedeln sida 1: NU PÅ EN RAK RAD */
-    #menu-result { 
-        display: flex !important; 
-        flex-direction: column !important; /* Tvingar rätterna att ligga under varandra */
-        gap: 10px;
-        margin-bottom: 50px;
-    }
-    
-    .menu-card { 
-        break-inside: avoid; 
-        border: 1px solid #eee !important; 
-        background: white !important;
-        padding: 12px !important;
-        border-radius: 8px !important;
-        width: 100% !important; /* Tar upp hela bredden */
-    }
-
-    /* Inköpslistan sida 2 */
-    #shopping-list-card { 
-        display: block !important;
-        break-before: page;
-        margin-top: 0 !important;
-        background: white !important;
-        border: none !important;
-    }
-
-    h3 { font-size: 24px !important; margin-bottom: 15px !important; }
-}
+        @media print {
+            .no-print, nav, header, #action-bar, button, .fas.fa-tag, input[type="checkbox"] { 
+                display: none !important; 
+            }
+            body { 
+                background: white !important; 
+                color: black !important;
+                overflow: visible !important;
+                height: auto !important;
+            }
+            main { 
+                padding: 0 !important; 
+                max-width: 100% !important;
+                overflow: visible !important;
+            }
+            #view-menu { display: block !important; }
+            #menu-result { 
+                display: flex !important; 
+                flex-direction: column !important; 
+                gap: 10px;
+                margin-bottom: 50px;
+            }
+            .menu-card { 
+                break-inside: avoid; 
+                border: 1px solid #eee !important; 
+                background: white !important;
+                padding: 12px !important;
+                border-radius: 8px !important;
+                width: 100% !important;
+            }
+            #shopping-list-card { 
+                display: block !important;
+                break-before: page;
+                margin-top: 0 !important;
+                background: white !important;
+                border: none !important;
+            }
+            h3 { font-size: 24px !important; margin-bottom: 15px !important; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 h-screen flex flex-col overflow-hidden">
@@ -171,7 +160,7 @@
 
         <section id="view-list" class="hidden space-y-4">
             <div class="sticky top-0 z-10 bg-slate-50/80 backdrop-blur pb-2">
-                <input type="text" id="search-input" onkeyup="window.app.filterDishes()" placeholder="Sök bland recept..." class="w-full p-4 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-emerald-500">
+                <input type="text" id="search-input" onkeyup="window.app.filterDishes()" placeholder="Sök recept..." class="w-full p-4 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
             <div id="all-dishes-list" class="grid gap-3"></div>
         </section>
@@ -203,11 +192,11 @@
         <div id="category-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
             <div class="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in duration-200">
                 <h3 class="text-lg font-bold text-slate-800 mb-1">Ändra kategori</h3>
-                <p class="text-xs text-slate-400 mb-6">Välj var <span id="cat-edit-item-name" class="font-bold text-emerald-600"></span> ska sorteras.</p>
+                <p class="text-xs text-slate-400 mb-6">Sortera <span id="cat-edit-item-name" class="font-bold text-emerald-600"></span>.</p>
                 <select id="cat-edit-select" class="w-full p-4 bg-slate-50 border-none rounded-2xl mb-6 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-emerald-500 transition-all"></select>
                 <div class="flex gap-3">
                     <button onclick="document.getElementById('category-modal').classList.add('hidden')" class="flex-1 py-3 text-sm font-bold text-slate-400">Avbryt</button>
-                    <button onclick="window.app.saveCategoryChange()" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-200">Spara</button>
+                    <button onclick="window.app.saveCategoryChange()" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold">Spara</button>
                 </div>
             </div>
         </div>
@@ -261,13 +250,11 @@
                 document.getElementById(`tab-${tab}`).classList.add('text-emerald-600', 'border-emerald-600', 'bg-emerald-50');
             },
 
-            // --- KATEGORIER ---
             async addCategory() {
                 const input = document.getElementById('new-custom-cat');
                 const name = input.value.trim();
                 if(!name) return;
                 if(!state.availableCategories) state.availableCategories = [];
-                if(state.availableCategories.includes(name)) return this.notify("Finns redan.");
                 state.availableCategories.push(name);
                 await setDoc(doc(db, "globala_inställningar", "inställningar"), { categories: state.availableCategories });
                 input.value = '';
@@ -276,7 +263,7 @@
 
             async removeCategory(name) {
                 if(confirm(`Ta bort "${name}"?`)) {
-                    state.availableCategories = state.availableCategories.filter(c => c !== name);
+                    state.availableCategories = (state.availableCategories || []).filter(c => c !== name);
                     await setDoc(doc(db, "globala_inställningar", "inställningar"), { categories: state.availableCategories });
                 }
             },
@@ -300,8 +287,7 @@
                 const allPossibleCats = [...new Set([...defaultCats, ...(state.availableCategories || [])])];
                 const currentCat = state.basvaror.has(state.itemToEdit) ? 'Basvaror' : (state.customCategories[state.itemToEdit] || 'Övrigt');
 
-                select.innerHTML = allPossibleCats.sort().map(cat => `
-                    <option value="${cat}" ${cat === currentCat ? 'selected' : ''}>${cat}</option>`).join('');
+                select.innerHTML = allPossibleCats.sort().map(cat => `<option value="${cat}" ${cat === currentCat ? 'selected' : ''}>${cat}</option>`).join('');
                 modal.classList.remove('hidden');
             },
 
@@ -313,7 +299,6 @@
                         state.basvaror.add(item);
                         await setDoc(doc(db, "globala_inställningar", "basvaror"), { items: Array.from(state.basvaror) });
                     } else {
-                        if(!state.customCategories) state.customCategories = {};
                         state.customCategories[item] = newCat;
                         await setDoc(doc(db, "globala_inställningar", "kategorier"), { map: state.customCategories });
                         if(state.basvaror.has(item)) {
@@ -326,7 +311,6 @@
                 } catch(e) { this.notify("Fel vid sparning."); }
             },
 
-            // --- RECEPT ---
             async saveDish() {
                 const name = document.getElementById('new-name').value.trim();
                 const cat = document.getElementById('new-category').value;
@@ -366,7 +350,6 @@
                 document.getElementById('form-title').innerText = "Skapa Recept";
             },
 
-            // --- IMPORT/EXPORT ---
             async importJSON(input) {
                 if (!input.files[0]) return;
                 const reader = new FileReader();
@@ -396,77 +379,57 @@
                 a.click();
             },
 
-            // --- MENY ---
-async generateMenu() {
-    const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
-    const helgDays = ['Fredag', 'Lördag'];
-    
-    if(state.dishes.length < 7) return this.notify("Du behöver minst 7 recept för en varierad meny.");
+            async generateMenu() {
+                const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
+                const helgDays = ['Fredag', 'Lördag'];
+                if(state.dishes.length < 7) return this.notify("Du behöver minst 7 recept.");
 
-    const newMenu = { ...state.currentMenu };
-    const usedIds = Object.values(state.currentMenu).map(d => d.id);
-    
-    // 1. Gruppera tillgängliga rätter efter kategori
-    const getAvailable = (cat) => state.dishes.filter(d => d.kategori === cat && !usedIds.includes(d.id)).sort(() => 0.5 - Math.random());
-    
-    const pools = {
-        fisk: getAvailable('fisk'),
-        vego: getAvailable('vegetarisk'),
-        helg: getAvailable('helg'),
-        blandat: state.dishes.filter(d => d.kategori !== 'helg' && !usedIds.includes(d.id)).sort(() => 0.5 - Math.random())
-    };
+                const newMenu = { ...state.currentMenu };
+                const usedIds = Object.values(state.currentMenu).filter(d => d).map(d => d.id);
+                
+                const getAvailable = (cat) => state.dishes.filter(d => d.kategori === cat && !usedIds.includes(d.id)).sort(() => 0.5 - Math.random());
+                const pools = {
+                    fisk: getAvailable('fisk'),
+                    vego: getAvailable('vegetarisk'),
+                    helg: getAvailable('helg'),
+                    blandat: state.dishes.filter(d => d.kategori !== 'helg' && !usedIds.includes(d.id)).sort(() => 0.5 - Math.random())
+                };
 
-    // 2. Kolla vad som redan är bokat (låst) så vi inte dubblar t.ex. fisk
-    const lockedCats = Object.entries(state.currentMenu)
-        .filter(([day]) => state.lockedDays.has(day))
-        .map(([_, dish]) => dish.kategori);
+                const lockedCats = Object.entries(state.currentMenu).filter(([day, dish]) => state.lockedDays.has(day) && dish).map(([_, dish]) => dish.kategori);
+                let daysToFill = days.filter(d => !state.lockedDays.has(d));
 
-    // 3. Bestäm vilka dagar som ska fyllas (de som inte är låsta)
-    const daysToFill = days.filter(d => !state.lockedDays.has(d));
+                if (!lockedCats.includes('fisk') && pools.fisk.length > 0) {
+                    const fishDayPool = daysToFill.filter(d => !helgDays.includes(d));
+                    if (fishDayPool.length > 0) {
+                        const day = fishDayPool[Math.floor(Math.random() * fishDayPool.length)];
+                        newMenu[day] = pools.fisk.pop();
+                        daysToFill = daysToFill.filter(d => d !== day);
+                    }
+                }
 
-    // --- SMART FÖRDELNING ---
+                if (!lockedCats.includes('vegetarisk') && pools.vego.length > 0) {
+                    const vegoDayPool = daysToFill.filter(d => !helgDays.includes(d));
+                    if (vegoDayPool.length > 0) {
+                        const day = vegoDayPool[Math.floor(Math.random() * vegoDayPool.length)];
+                        newMenu[day] = pools.vego.pop();
+                        daysToFill = daysToFill.filter(d => d !== day);
+                    }
+                }
 
-    // A. Boka in FISK (om ingen fisk redan är låst)
-    if (!lockedCats.includes('fisk') && pools.fisk.length > 0) {
-        // Välj en slumpmässig vardag (Mån-Tor eller Sön) för fisken
-        const fishDayPool = daysToFill.filter(d => !helgDays.includes(d));
-        if (fishDayPool.length > 0) {
-            const day = fishDayPool[Math.floor(Math.random() * fishDayPool.length)];
-            newMenu[day] = pools.fisk.pop();
-            daysToFill.splice(daysToFill.indexOf(day), 1);
-        }
-    }
+                helgDays.forEach(day => {
+                    if (daysToFill.includes(day)) {
+                        newMenu[day] = pools.helg.pop() || pools.blandat.pop();
+                        daysToFill = daysToFill.filter(d => d !== day);
+                    }
+                });
 
-    // B. Boka in VEGETARISKT (om inget vego redan är låst)
-    if (!lockedCats.includes('vegetarisk') && pools.vego.length > 0) {
-        const vegoDayPool = daysToFill.filter(d => !helgDays.includes(d));
-        if (vegoDayPool.length > 0) {
-            const day = vegoDayPool[Math.floor(Math.random() * vegoDayPool.length)];
-            newMenu[day] = pools.vego.pop();
-            daysToFill.splice(daysToFill.indexOf(day), 1);
-        }
-    }
+                daysToFill.forEach(day => { newMenu[day] = pools.blandat.pop(); });
 
-    // C. Fyll HELG-dagarna (Fredag/Lördag)
-    helgDays.forEach(day => {
-        if (daysToFill.includes(day)) {
-            newMenu[day] = pools.helg.pop() || pools.blandat.pop();
-            daysToFill.splice(daysToFill.indexOf(day), 1);
-        }
-    });
-
-    // D. Fyll resten av dagarna med blandade rätter
-    daysToFill.forEach(day => {
-        // Vi tar från 'blandat'-poolen men försöker undvika att ta en fisk till
-        newMenu[day] = pools.blandat.pop();
-    });
-
-    // Spara till Firebase
-    state.currentMenu = newMenu;
-    await setDoc(doc(db, PATHS.menu), newMenu);
-    this.renderMenu();
-    this.notify("Smart meny genererad!");
-}
+                state.currentMenu = newMenu;
+                await setDoc(doc(db, PATHS.menu), newMenu);
+                this.renderMenu();
+                this.notify("Smart meny genererad!");
+            },
 
             toggleLock(day) {
                 if(state.lockedDays.has(day)) state.lockedDays.delete(day);
@@ -497,13 +460,13 @@ async generateMenu() {
                         }
                     });
                     this.renderMenu();
-                    this.notify("Kollad!");
                 } catch(e) { this.notify("Nätverksfel."); }
                 finally { btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; }
             },
 
             renderMenu() {
                 const container = document.getElementById('menu-result');
+                if(!container) return;
                 container.innerHTML = '';
                 ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'].forEach(day => {
                     const dish = state.currentMenu[day];
@@ -520,7 +483,7 @@ async generateMenu() {
                                 </div>
                             </div>
                             <h3 class="font-bold text-slate-800 text-lg">${dish ? dish.namn : '<span class="text-slate-300 italic">Inget valt...</span>'}</h3>
-                            <p class="text-xs text-slate-500 mt-1 truncate">${dish ? dish.ingredienser.join(', ') : ''}</p>
+                            <p class="text-xs text-slate-500 mt-1 truncate">${dish ? (dish.ingredienser || []).join(', ') : ''}</p>
                         </div>`;
                 });
                 this.generateShoppingList();
@@ -528,11 +491,12 @@ async generateMenu() {
 
             renderDishList() {
                 const container = document.getElementById('all-dishes-list');
+                if(!container) return;
                 container.innerHTML = [...state.dishes].sort((a,b) => a.namn.localeCompare(b.namn)).map(d => `
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center">
                         <div class="overflow-hidden">
                             <h4 class="font-bold text-slate-800 text-sm">${d.namn}</h4>
-                            <p class="text-[10px] text-slate-400 truncate">${d.ingredienser.join(', ')}</p>
+                            <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>
                         </div>
                         <div class="flex gap-4 ml-4">
                             <button onclick="window.app.editDish('${d.id}')" class="text-slate-300 hover:text-emerald-500"><i class="fas fa-pen"></i></button>
@@ -546,11 +510,11 @@ async generateMenu() {
                 const card = document.getElementById('shopping-list-card');
                 let all = [];
                 Object.values(state.currentMenu).forEach(d => { if(d?.ingredienser) all = [...all, ...d.ingredienser]; });
-                if(all.length === 0) { card.classList.add('hidden'); return; }
-                card.classList.remove('hidden');
+                if(all.length === 0) { if(card) card.classList.add('hidden'); return; }
+                if(card) card.classList.remove('hidden');
 
                 const cats = { 'Frukt & Grönt': [], 'Mejeri': [], 'Kött/Fisk': [], 'Chark': [], 'Skafferi': [], 'Fryst': [], 'Dryck': [] };
-                if(state.availableCategories) state.availableCategories.forEach(c => cats[c] = []);
+                (state.availableCategories || []).forEach(c => cats[c] = []);
                 cats['Basvaror'] = []; cats['Övrigt'] = [];
 
                 const keywords = { 
@@ -574,7 +538,7 @@ async generateMenu() {
                     if(!foundByKeyword) cats['Övrigt'].push(ing);
                 });
 
-                container.innerHTML = Object.entries(cats).map(([c, items]) => {
+                if(container) container.innerHTML = Object.entries(cats).map(([c, items]) => {
                     if(items.length === 0) return '';
                     const isBasvara = c === 'Basvaror';
                     return `
@@ -599,6 +563,7 @@ async generateMenu() {
 
             notify(msg) {
                 const t = document.getElementById('toast');
+                if(!t) return;
                 t.innerText = msg; t.classList.remove('opacity-0');
                 setTimeout(() => t.classList.add('opacity-0'), 2500);
             },
@@ -615,7 +580,7 @@ async generateMenu() {
             }
         };
 
-        // --- INIT ---
+        // --- STARTA UP ---
         document.getElementById('room-id-val').innerText = state.room;
         document.getElementById('room-label').innerText = `| ${state.room}`;
 
@@ -623,11 +588,12 @@ async generateMenu() {
             state.dishes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('connection-status').innerHTML = '<i class="fas fa-check-circle text-emerald-300"></i> Online';
             window.app.renderDishList();
-        });
+            window.app.renderMenu();
+        }, () => { document.getElementById('connection-status').innerText = 'Offline/Fel'; });
 
         onSnapshot(doc(db, PATHS.menu), snap => { if(snap.exists()) { state.currentMenu = snap.data(); window.app.renderMenu(); } });
-        onSnapshot(doc(db, "globala_inställningar", "kategorier"), snap => { if(snap.exists()) { state.customCategories = snap.data().map || {}; window.app.renderMenu(); } });
-        onSnapshot(doc(db, "globala_inställningar", "basvaror"), snap => { if(snap.exists()) { state.basvaror = new Set(snap.data().items.map(i => i.toLowerCase())); window.app.renderMenu(); } });
+        onSnapshot(doc(db, "globala_inställningar", "kategorier"), snap => { if(snap.exists()) { state.customCategories = snap.data()?.map || {}; window.app.renderMenu(); } });
+        onSnapshot(doc(db, "globala_inställningar", "basvaror"), snap => { if(snap.exists() && snap.data().items) { state.basvaror = new Set(snap.data().items.map(i => i.toLowerCase())); window.app.renderMenu(); } });
         onSnapshot(doc(db, "globala_inställningar", "inställningar"), snap => { if(snap.exists()) { state.availableCategories = snap.data().categories || []; window.app.renderSettingsCategories(); window.app.renderMenu(); } });
 
         window.app.showTab('menu');
