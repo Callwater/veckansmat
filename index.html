@@ -457,47 +457,50 @@ generateShoppingList() {
                 'Kött/Fisk': ['lax','färs','kyckling','bacon','skinka','biff','torsk'] 
             };
 
-            // Inuti generateShoppingList, precis innan [...new Set(all.map(...
+// 1. Skapa listan med unika ingredienser
 const uniqueIngs = [...new Set(all.map(i => i.toLowerCase().trim()))];
 
+// 2. Kör loopen EN gång för att sortera allt
 uniqueIngs.forEach(ing => {
+    
+    // Hämta sparad kategori från Firebase
     let userChosenCat = state.customCategories[ing];
     
-    // FIX: Om varan är sparad som "Grönt", tvinga den till "Frukt och Grönt"
-    if (userChosenCat === 'Grönt') userChosenCat = 'Frukt och Grönt';
-    
+    // FIX: Om kategorin i databasen fortfarande heter "Grönt", 
+    // tvinga den att räknas som "Frukt och Grönt" i programmet.
+    if (userChosenCat === 'Grönt') {
+        userChosenCat = 'Frukt och Grönt';
+    }
 
-            // Rensa dubbletter och loopa
-            [...new Set(all.map(i => i.toLowerCase().trim()))].forEach(ing => {
-                
-                // 1. Kolla om det är en Basvara (viktigast)
-                if(state.basvaror.has(ing)) { 
-                    cats['Basvaror'].push(ing); 
-                    return; 
-                }
+    // --- NU BÖRJAR SORTERINGEN ---
 
-                // 2. Kolla om användaren har valt en egen kategori (Ditt val i modalen)
-                const userChosenCat = state.customCategories[ing];
-                if(userChosenCat && cats[userChosenCat]) { 
-                    cats[userChosenCat].push(ing); 
-                    return; // Om vi hittar ditt val, stanna här!
-                }
+    // 1. Kolla om det är en Basvara (viktigast)
+    if(state.basvaror.has(ing)) { 
+        cats['Basvaror'].push(ing); 
+        return; 
+    }
 
-                // 3. Om inget valts ovan, gissa baserat på nyckelord
-                let foundByKeyword = false;
-                for(const [categoryName, keys] of Object.entries(keywords)) { 
-                    if(keys.some(key => ing.includes(key))) { 
-                        cats[categoryName].push(ing); 
-                        foundByKeyword = true; 
-                        break; 
-                    } 
-                }
+    // 2. Kolla om det finns en sparad kategori (Använder den fixade "userChosenCat")
+    if(userChosenCat && cats[userChosenCat]) { 
+        cats[userChosenCat].push(ing); 
+        return; 
+    }
 
-                // 4. Sista utvägen: Övrigt
-                if(!foundByKeyword) {
-                    cats['Övrigt'].push(ing);
-                }
-            });
+    // 3. Om inget valts ovan, gissa baserat på nyckelord
+    let foundByKeyword = false;
+    for(const [categoryName, keys] of Object.entries(keywords)) { 
+        if(keys.some(key => ing.includes(key))) { 
+            cats[categoryName].push(ing); 
+            foundByKeyword = true; 
+            break; 
+        } 
+    }
+
+    // 4. Sista utvägen: Övrigt
+    if(!foundByKeyword) {
+        cats['Övrigt'].push(ing);
+    }
+});
 
             // Rendera listan
             container.innerHTML = Object.entries(cats).map(([categoryName, items]) => {
