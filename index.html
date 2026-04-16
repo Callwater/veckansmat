@@ -36,53 +36,55 @@
         .menu-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
 
         /* --- PRINT LOGIK --- */
-        @media print {
-            .no-print, nav, header, #action-bar, button, .fas.fa-tag, input[type="checkbox"] { 
-                display: none !important; 
-            }
-            
-            body { 
-                background: white !important; 
-                color: black !important;
-                overflow: visible !important;
-                height: auto !important;
-            }
-            
-            main { 
-                padding: 0 !important; 
-                max-width: 100% !important;
-                overflow: visible !important;
-            }
+@media print {
+    /* Dölj allt som inte ska med på papper */
+    .no-print, nav, header, #action-bar, button, .fas.fa-tag, input[type="checkbox"] { 
+        display: none !important; 
+    }
+    
+    body { 
+        background: white !important; 
+        color: black !important;
+        overflow: visible !important;
+        height: auto !important;
+    }
+    
+    main { 
+        padding: 0 !important; 
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
 
-            #view-menu { display: block !important; }
-            
-            /* Matsedeln sida 1 */
-            #menu-result { 
-                display: grid !important; 
-                grid-template-columns: 1fr 1fr;
-                gap: 15px;
-                margin-bottom: 50px;
-            }
-            
-            .menu-card { 
-                break-inside: avoid; 
-                border: 1px solid #eee !important; 
-                background: white !important;
-                padding: 15px !important;
-                border-radius: 10px !important;
-            }
+    #view-menu { display: block !important; }
 
-            /* Inköpslistan sida 2 */
-            #shopping-list-card { 
-                display: block !important;
-                break-before: page;
-                margin-top: 30px !important;
-                background: white !important;
-                border: none !important;
-            }
+    /* Matsedeln sida 1: NU PÅ EN RAK RAD */
+    #menu-result { 
+        display: flex !important; 
+        flex-direction: column !important; /* Tvingar rätterna att ligga under varandra */
+        gap: 10px;
+        margin-bottom: 50px;
+    }
+    
+    .menu-card { 
+        break-inside: avoid; 
+        border: 1px solid #eee !important; 
+        background: white !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+        width: 100% !important; /* Tar upp hela bredden */
+    }
 
-            h3 { font-size: 24px !important; margin-bottom: 15px !important; }
-        }
+    /* Inköpslistan sida 2 */
+    #shopping-list-card { 
+        display: block !important;
+        break-before: page;
+        margin-top: 0 !important;
+        background: white !important;
+        border: none !important;
+    }
+
+    h3 { font-size: 24px !important; margin-bottom: 15px !important; }
+}
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 h-screen flex flex-col overflow-hidden">
