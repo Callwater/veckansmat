@@ -492,6 +492,7 @@
     onSnapshot(doc(db, "globala_inställningar", "kategorier"), snap => { if(snap.exists()) { state.customCategories = snap.data().map || {}; window.app.renderMenu(); } });
     onSnapshot(doc(db, "globala_inställningar", "basvaror"), snap => { if(snap.exists()) { state.basvaror = new Set(snap.data().items.map(i => i.toLowerCase())); window.app.renderMenu(); } });
 
+    // Bootstrap
     window.app.showTab('menu');
 </script>
 
