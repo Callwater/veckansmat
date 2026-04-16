@@ -425,38 +425,94 @@
                 </div>`).join('');
         },
 
-        generateShoppingList() {
+generateShoppingList() {
             const container = document.getElementById('shopping-list-content');
             const card = document.getElementById('shopping-list-card');
             let all = [];
-            Object.values(state.currentMenu).forEach(d => { if(d?.ingredienser) all = [...all, ...d.ingredienser]; });
+            
+            // Samla alla ingredienser från menyn
+            Object.values(state.currentMenu).forEach(d => { 
+                if(d?.ingredienser) all = [...all, ...d.ingredienser]; 
+            });
+
             if(all.length === 0) { card.classList.add('hidden'); return; }
             card.classList.remove('hidden');
 
-            const cats = { 'Grönt': [], 'Mejeri': [], 'Kött/Fisk': [], 'Skafferi': [], 'Basvaror': [], 'Övrigt': [] };
-            const keywords = { 'Grönt': ['tomat','gurka','lök','sallad','kål','morot'], 'Mejeri': ['mjölk','ost','ägg','smör','grädde'], 'Kött/Fisk': ['lax','färs','kyckling','bacon','skinka'] };
+            // VIKTIGT: Alla kategorier från din modal måste finnas här för att kunna ta emot varor
+            const cats = { 
+                'Grönt': [], 
+                'Mejeri': [], 
+                'Kött/Fisk': [], 
+                'Chark': [], 
+                'Skafferi': [], 
+                'Fryst': [], 
+                'Dryck': [], 
+                'Basvaror': [], 
+                'Övrigt': [] 
+            };
 
+            const keywords = { 
+                'Grönt': ['tomat','gurka','lök','sallad','kål','morot','paprika','citron'], 
+                'Mejeri': ['mjölk','ost','ägg','smör','grädde','fraiche','yoghurt'], 
+                'Kött/Fisk': ['lax','färs','kyckling','bacon','skinka','biff','torsk'] 
+            };
+
+            // Rensa dubbletter och loopa
             [...new Set(all.map(i => i.toLowerCase().trim()))].forEach(ing => {
-                if(state.basvaror.has(ing)) { cats['Basvaror'].push(ing); return; }
-                const userCat = state.customCategories[ing];
-                if(userCat) { cats[userCat].push(ing); return; }
-                let found = false;
-                for(const [c,k] of Object.entries(keywords)) { if(k.some(key => ing.includes(key))) { cats[c].push(ing); found = true; break; } }
-                if(!found) cats['Övrigt'].push(ing);
+                
+                // 1. Kolla om det är en Basvara (viktigast)
+                if(state.basvaror.has(ing)) { 
+                    cats['Basvaror'].push(ing); 
+                    return; 
+                }
+
+                // 2. Kolla om användaren har valt en egen kategori (Ditt val i modalen)
+                const userChosenCat = state.customCategories[ing];
+                if(userChosenCat && cats[userChosenCat]) { 
+                    cats[userChosenCat].push(ing); 
+                    return; // Om vi hittar ditt val, stanna här!
+                }
+
+                // 3. Om inget valts ovan, gissa baserat på nyckelord
+                let foundByKeyword = false;
+                for(const [categoryName, keys] of Object.entries(keywords)) { 
+                    if(keys.some(key => ing.includes(key))) { 
+                        cats[categoryName].push(ing); 
+                        foundByKeyword = true; 
+                        break; 
+                    } 
+                }
+
+                // 4. Sista utvägen: Övrigt
+                if(!foundByKeyword) {
+                    cats['Övrigt'].push(ing);
+                }
             });
 
-            container.innerHTML = Object.entries(cats).map(([c, items]) => {
+            // Rendera listan
+            container.innerHTML = Object.entries(cats).map(([categoryName, items]) => {
                 if(items.length === 0) return '';
-                return `<div class="${c==='Basvaror'?'mt-6 pt-4 border-t border-amber-200 opacity-60':''}">
-                    <h4 class="text-[10px] font-black uppercase tracking-tighter mb-2 text-amber-800/50">${c}</h4>
-                    <ul class="space-y-2">${items.map(i => `
-                        <li class="flex justify-between group py-1">
-                            <div class="flex items-center gap-3">
-                                <input type="checkbox" class="w-5 h-5 rounded border-amber-300 text-emerald-600">
-                                <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>
-                            </div>
-                            <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" class="text-amber-400 hover:text-emerald-600 p-1"><i class="fas fa-tag text-[10px]"></i></button>
-                        </li>`).join('')}</ul></div>`;
+                
+                const isBasvara = categoryName === 'Basvaror';
+                const styleClass = isBasvara ? 'mt-6 pt-4 border-t border-amber-200 opacity-60' : 'mt-2';
+
+                return `
+                    <div class="${styleClass}">
+                        <h4 class="text-[10px] font-black uppercase tracking-tighter mb-2 text-amber-800/50">${categoryName}</h4>
+                        <ul class="space-y-2">
+                            ${items.map(i => `
+                                <li class="flex justify-between group py-1">
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" class="w-5 h-5 rounded border-amber-300 text-emerald-600 focus:ring-0">
+                                        <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>
+                                    </div>
+                                    <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" 
+                                            class="text-amber-400 hover:text-emerald-600 p-1 transition-colors no-print">
+                                        <i class="fas fa-tag text-[10px]"></i>
+                                    </button>
+                                </li>`).join('')}
+                        </ul>
+                    </div>`;
             }).join('');
         },
 
