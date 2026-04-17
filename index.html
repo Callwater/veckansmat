@@ -460,54 +460,65 @@ async checkSchoolClashes() {
                     const apiUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
                     const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
                     const data = await res.json();
-                    
                     const schoolDays = Array.isArray(data) ? data : (data.data || []);
+
                     state.clashes = {};
 
+                    // --- KATEGORIKARTAN (Här bor intelligensen) ---
+                    const categories = {
+                        fisk: ['sej', 'torsk', 'lax', 'spätta', 'fisk', 'strömming', 'kolja', 'hoki', 'fiskpinnar'],
+                        pasta: ['pasta', 'makaroner', 'spaghetti', 'fusilli', 'penne', 'lasagne', 'tagliatelle', 'gnocchi', 'carbonara', 'bolognese'],
+                        färs: ['färs', 'köttfärs', 'köttbullar', 'biffar', 'pannbiff', 'järpar', 'kebab', 'hamburgare'],
+                        korv: ['korv', 'falukorv', 'prinskorv', 'chorizo', 'bratwurst', 'istroband', 'isterband'],
+                        kyckling: ['kyckling', 'chicken', 'nuggets', 'filé'],
+                        pannkaka: ['pannkaka', 'pannkakor', 'plättar', 'ugnspannkaka', 'raggmunkar', 'crepes'],
+                        soppa: ['soppa', 'gulasch', 'minestrone', 'buljong']
+                    };
+
                     const ignoredWords = [
-                        'potatis', 'potatismos', 'ris', 'bulgur', 'couscous', 
-                        'stuvad', 'stuvade', 'stuvning', 'kokt', 'kokta', 'stekt', 'stekta', 
-                        'ugnsbakad', 'ugnsbakade', 'med', 'till', 'serveras', 'sås', 'krämig', 
-                        'filé', 'panerad', 'sprödbakad', 'bitar', 'gratäng'
+                        'potatis', 'potatismos', 'ris', 'bulgur', 'couscous', 'stuvad', 'stuvade', 
+                        'kokt', 'kokta', 'stekt', 'stekta', 'ugnsbakad', 'med', 'till', 'sås'
                     ];
 
                     ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'].forEach(dayName => {
                         const targetDate = weekDates[dayName];
                         const schoolDay = schoolDays.find(d => d.date && d.date.includes(targetDate));
-                        
                         if (!schoolDay || !schoolDay.meals) return;
 
                         const homeDish = state.currentMenu[dayName];
                         if (!homeDish) return;
 
-                        const homeNameLower = homeDish.namn.toLowerCase();
-                        const homeDishClean = homeNameLower.replace(/[^a-zåäö ]/g, " ");
-                        const homeKeywords = homeDishClean.split(" ")
-                            .filter(w => w.length > 3 && !ignoredWords.includes(w));
+                        const hName = homeDish.namn.toLowerCase();
+                        const sMeal = schoolDay.meals.find(m => m.type === "Lunch 1");
+                        if (!sMeal) return;
+                        const sName = sMeal.name.toLowerCase();
 
-                        const mainMeal = schoolDay.meals.find(m => m.type === "Lunch 1");
+                        let isClash = false;
 
-                        if (mainMeal) {
-                            const schoolMealLower = mainMeal.name.toLowerCase();
+                        // 1. Kolla kategorikrockar (Smart matchning)
+                        for (const [cat, words] of Object.entries(categories)) {
+                            const homeHasCat = words.some(w => hName.includes(w));
+                            const schoolHasCat = words.some(w => sName.includes(w));
                             
-                            // 1. Standard-matchning på sökord
-                            let isClash = homeKeywords.some(word => schoolMealLower.includes(word));
-
-                            // 2. FISK-KOLL (Special)
-                            const fishTypes = ['sej', 'torsk', 'lax', 'spätta', 'fisk', 'strömming'];
-                            const homeHasFish = fishTypes.some(type => homeNameLower.includes(type));
-                            const schoolHasFish = fishTypes.some(type => schoolMealLower.includes(type));
-                            if (homeHasFish && schoolHasFish) isClash = true;
-
-                            // 3. PASTA-KOLL (Special - eftersom du hade problem här)
-                            const pastaTypes = ['pasta', 'makaroner', 'spaghetti', 'fusilli', 'penne', 'lasagne'];
-                            const homeHasPasta = pastaTypes.some(type => homeNameLower.includes(type));
-                            const schoolHasPasta = pastaTypes.some(type => schoolMealLower.includes(type));
-                            if (homeHasPasta && schoolHasPasta) isClash = true;
-                            
-                            if (isClash) {
-                                state.clashes[dayName] = mainMeal.name;
+                            if (homeHasCat && schoolHasCat) {
+                                console.log(`Kategori-krock på ${dayName}: Båda är ${cat}`);
+                                isClash = true;
+                                break;
                             }
+                        }
+
+                        // 2. Kolla ord-krockar (för rätter utanför kategorierna, ex "Tacos")
+                        if (!isClash) {
+                            const hKeywords = hName.replace(/[^a-zåäö ]/g, " ").split(" ")
+                                .filter(w => w.length > 3 && !ignoredWords.includes(w));
+                            
+                            if (hKeywords.some(word => sName.includes(word))) {
+                                isClash = true;
+                            }
+                        }
+
+                        if (isClash) {
+                            state.clashes[dayName] = sMeal.name;
                         }
                     });
 
@@ -516,7 +527,6 @@ async checkSchoolClashes() {
                     this.notify(count > 0 ? `${count} krockar hittade!` : "Inga krockar hittades.");
                     
                 } catch(e) { 
-                    console.error("Skolkollen error:", e);
                     this.notify("Kunde inte hämta skolmaten."); 
                 } finally { 
                     btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; 
