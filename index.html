@@ -612,21 +612,68 @@ async checkSchoolClashes() {
                 this.generateShoppingList();
             },
 
-            renderDishList() {
+            // Recept bank kategorier
+
+renderDishList() {
                 const container = document.getElementById('all-dishes-list');
                 if(!container) return;
-                container.innerHTML = [...state.dishes].sort((a,b) => a.namn.localeCompare(b.namn)).map(d => `
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center">
-                        <div class="overflow-hidden">
-                            <h4 class="font-bold text-slate-800 text-sm">${d.namn}</h4>
-                            <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>
+                container.innerHTML = '';
+
+                // 1. Definiera ordningen och ikoner för kategorierna
+                const catInfo = {
+                    'kött': { label: '🥩 Kött', color: 'bg-red-50 text-red-700' },
+                    'kyckling': { label: '🍗 Kyckling', color: 'bg-orange-50 text-orange-700' },
+                    'fisk': { label: '🐟 Fisk', color: 'bg-blue-50 text-blue-700' },
+                    'vegetarisk': { label: '🥦 Vegetariskt', color: 'bg-emerald-50 text-emerald-700' },
+                    'chark': { label: '🌭 Korv/Chark', color: 'bg-pink-50 text-pink-700' },
+                    'helg': { label: '🥂 Lyx/Helg', color: 'bg-purple-50 text-purple-700' },
+                    'övrigt': { label: '🍴 Övrigt', color: 'bg-slate-50 text-slate-700' }
+                };
+
+                // 2. Gruppera recepten
+                const grouped = {};
+                state.dishes.forEach(d => {
+                    const cat = d.kategori || 'övrigt';
+                    if (!grouped[cat]) grouped[cat] = [];
+                    grouped[cat].push(d);
+                });
+
+                // 3. Sortera kategorierna så de följer catInfo-ordningen
+                const sortedCats = Object.keys(grouped).sort((a, b) => {
+                    const order = Object.keys(catInfo);
+                    return order.indexOf(a) - order.indexOf(b);
+                });
+
+                // 4. Bygg HTML
+                sortedCats.forEach(cat => {
+                    const info = catInfo[cat] || { label: cat.toUpperCase(), color: 'bg-slate-50 text-slate-700' };
+                    const dishes = grouped[cat].sort((a, b) => a.namn.localeCompare(b.namn));
+
+                    container.innerHTML += `
+                        <div class="category-section mt-6 mb-2">
+                            <h3 class="flex items-center gap-2 px-2 py-1 mb-3 text-sm font-black uppercase tracking-widest ${info.color} rounded-lg w-fit">
+                                ${info.label} <span class="opacity-50 text-[10px] font-medium">(${dishes.length})</span>
+                            </h3>
+                            <div class="grid gap-3">
+                                ${dishes.map(d => `
+                                    <div class="dish-item bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center transition-all hover:border-emerald-200">
+                                        <div class="overflow-hidden">
+                                            <h4 class="font-bold text-slate-800 text-sm">${d.namn}</h4>
+                                            <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>
+                                        </div>
+                                        <div class="flex gap-4 ml-4 no-print">
+                                            <button onclick="window.app.editDish('${d.id}')" class="text-slate-300 hover:text-emerald-500"><i class="fas fa-pen"></i></button>
+                                            <button onclick="window.app.deleteDish('${d.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
-                        <div class="flex gap-4 ml-4">
-                            <button onclick="window.app.editDish('${d.id}')" class="text-slate-300 hover:text-emerald-500"><i class="fas fa-pen"></i></button>
-                            <button onclick="window.app.deleteDish('${d.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>`).join('');
+                    `;
+                });
             },
+
+            // Generera handlingslista
 
             generateShoppingList() {
                 const container = document.getElementById('shopping-list-content');
