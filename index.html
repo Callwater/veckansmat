@@ -386,22 +386,21 @@ async generateMenu() {
                 const helgDays = ['Fredag', 'Lördag'];
                 const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Söndag'];
                 
-                if(state.dishes.length < 10) return this.notify("Lägg till fler recept (minst 10) för att jag ska kunna variera smakerna ordentligt!");
+                if(state.dishes.length < 10) return this.notify("Lägg till fler recept för bättre variation!");
 
-                // --- STEG 1: Nollställning ---
                 const newMenu = {};
                 let usedIds = new Set();
-                let usedKeywords = new Set(); // Här sparar vi "smakerna" (t.ex. 'taco', 'kyckling')
+                let usedKeywords = new Set();
 
-                // Funktion för att tvätta fram viktiga sökord ur ett namn
+                // Rensar namn och plockar ut de viktigaste "smakorden"
                 const getCoreWords = (name) => {
                     return name.toLowerCase()
                         .replace(/[^a-zåäö ]/g, " ")
                         .split(" ")
-                        .filter(w => w.length > 3 && !['stekt', 'kokt', 'ugns', 'filé', 'med', 'och'].includes(w));
+                        .filter(w => w.length >= 4 && !['stekt', 'kokt', 'ugns', 'filé', 'med', 'och', 'krämig', 'mild'].includes(w));
                 };
 
-                // Inventera låsta rätter
+                // 1. Inventera låsta rätter
                 days.forEach(day => {
                     if (state.lockedDays.has(day) && state.currentMenu[day]) {
                         const dish = state.currentMenu[day];
@@ -413,47 +412,49 @@ async generateMenu() {
                     }
                 });
 
-                // --- STEG 2: Smart hjälpfunktion för pooler ---
+                // 2. SMARTARE POOL-FILTER
                 const getSmartPool = (cat = null) => {
                     return state.dishes.filter(d => {
-                        const matchCat = cat ? d.kategori === cat : true;
-                        const isUnique = !usedIds.has(d.id);
+                        if (usedIds.has(d.id)) return false;
+                        if (cat && d.kategori !== cat) return false;
                         
-                        // Kolla om rätten är för lik något vi redan valt (t.ex. Taco vs Tacogratäng)
-                        const dWords = getCoreWords(d.namn);
-                        const isTooSimilar = dWords.some(w => usedKeywords.has(w));
+                        const currentDishWords = getCoreWords(d.namn);
+                        
+                        // KOLL: Är något ord i den här rätten för likt ett ord vi redan använt?
+                        // Ex: "Tacos" vs "Tacogratäng"
+                        const isTooSimilar = currentDishWords.some(word => {
+                            return Array.from(usedKeywords).some(used => {
+                                // Kolla om ordet innehåller det använda ordet, eller vice versa
+                                // Eller om de börjar på samma 4 bokstäver (t.ex. Taco... vs Taco...)
+                                return word.includes(used) || used.includes(word) || (word.substring(0,4) === used.substring(0,4));
+                            });
+                        });
 
-                        return matchCat && isUnique && !isTooSimilar;
+                        return !isTooSimilar;
                     }).sort(() => 0.5 - Math.random());
                 };
 
-                // --- STEG 3: FISK ---
+                // 3. FISK
                 const hasLockedFish = Array.from(usedIds).some(id => 
                     state.dishes.find(d => d.id === id)?.kategori === 'fisk'
                 );
-                
                 if (!hasLockedFish) {
-                    let fishPool = getSmartPool('fisk');
-                    // Om vi inte hittar nån "unik" fisk, ta vilken fisk som helst som inte är använd
-                    if (fishPool.length === 0) fishPool = state.dishes.filter(d => d.kategori === 'fisk' && !usedIds.has(d.id));
-                    
-                    const availableFishDays = vardagar.filter(d => !newMenu[d]);
-                    if (fishPool.length > 0 && availableFishDays.length > 0) {
-                        const pick = fishPool[0];
-                        const day = availableFishDays[0];
-                        newMenu[day] = pick;
-                        usedIds.add(pick.id);
-                        getCoreWords(pick.namn).forEach(w => usedKeywords.add(w));
+                    let pool = getSmartPool('fisk');
+                    if (pool.length === 0) pool = state.dishes.filter(d => d.kategori === 'fisk' && !usedIds.has(d.id));
+                    const day = vardagar.filter(d => !newMenu[d])[0];
+                    if (pool[0] && day) {
+                        newMenu[day] = pool[0];
+                        usedIds.add(pool[0].id);
+                        getCoreWords(pool[0].namn).forEach(w => usedKeywords.add(w));
                     }
                 }
 
-                // --- STEG 4: HELG (Fredag & Lördag) ---
+                // 4. HELG
                 helgDays.forEach(day => {
                     if (!newMenu[day]) {
-                        let helgPool = getSmartPool('helg');
-                        if (helgPool.length === 0) helgPool = getSmartPool(); // Fallback om helgmaten är "för lik" vardagsmaten
-                        
-                        const pick = helgPool[0] || state.dishes.filter(d => !usedIds.has(d.id))[0];
+                        let pool = getSmartPool('helg');
+                        if (pool.length === 0) pool = getSmartPool();
+                        const pick = pool[0] || state.dishes.filter(d => !usedIds.has(d.id))[0];
                         if (pick) {
                             newMenu[day] = pick;
                             usedIds.add(pick.id);
@@ -462,18 +463,12 @@ async generateMenu() {
                     }
                 });
 
-                // --- STEG 5: RESTEN (Variera kategorier) ---
+                // 5. RESTEN
                 days.forEach((day, i) => {
                     if (newMenu[day]) return;
-
                     let pool = getSmartPool();
-                    
-                    // Om poolen blir tom pga för stränga krav, tillåt liknande namn men håll ID unikt
-                    if (pool.length === 0) {
-                        pool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
-                    }
+                    if (pool.length === 0) pool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
 
-                    // Undvik samma kategori som föregående dag
                     const prevCat = newMenu[days[i-1]]?.kategori;
                     if (pool.length > 1 && pool[0].kategori === prevCat) {
                         const item = pool.shift();
@@ -488,13 +483,11 @@ async generateMenu() {
                     }
                 });
 
-                // --- STEG 6: Spara ---
                 state.currentMenu = newMenu;
                 await setDoc(doc(db, PATHS.menu), newMenu);
                 this.renderMenu();
-                this.notify("Nu med garanterad variation!");
-                
-                console.log("Spärrade smaker denna vecka:", Array.from(usedKeywords));
+                this.notify("Variation säkrad (inga dubbel-tacos!)");
+                console.log("Spärrade ordstammar:", Array.from(usedKeywords));
             },
 
 
