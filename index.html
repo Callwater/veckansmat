@@ -145,13 +145,15 @@
                 <div class="space-y-4">
                     <input type="text" id="new-name" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Rättens namn...">
                     <select id="new-category" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none transition-all">
-                        <option value="kött">🥩 Kött</option>
-                        <option value="kyckling">🍗 Kyckling</option>
-                        <option value="fisk">🐟 Fisk</option>
-                        <option value="vegetarisk">🥦 Vegetariskt</option>
-                        <option value="chark">🌭 Korv/Chark</option>
-                        <option value="helg">🥂 Lyx/Helg</option>
-                    </select>
+<option value="kött">🥩 Kött</option>
+    <option value="kyckling">🍗 Kyckling</option>
+    <option value="fisk">🐟 Fisk</option>
+    <option value="pasta">🍝 Pasta</option> 
+    <option value="vegetarisk">🥦 Vegetariskt</option>
+    <option value="chark">🌭 Korv/Chark</option>
+    <option value="helg">🥂 Lyx/Helg</option>
+    <option value="övrigt">🍴 Övrigt</option>
+</select>
                     <textarea id="new-ingredients" class="w-full p-4 bg-slate-50 border-none rounded-xl h-32 focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Ingredienser (separera med kommatecken)..."></textarea>
                     <button id="save-btn" onclick="window.app.saveDish()" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-emerald-700 transition-all">Spara Recept</button>
                 </div>
@@ -519,13 +521,14 @@ async checkSchoolClashes() {
 
                     // --- KATEGORIKARTAN (Här bor intelligensen) ---
                     const categories = {
+                        pasta: : ['pasta', 'makaroner', 'spaghetti', 'fusilli', 'penne', 'lasagne', 'tagliatelle', 'gnocchi', 'carbonara', 'bolognese', 'tortellini'], 
                         fisk: ['sej', 'torsk', 'lax', 'spätta', 'fisk', 'strömming', 'kolja', 'hoki', 'fiskpinnar'],
                         pasta: ['pasta', 'makaroner', 'spaghetti', 'fusilli', 'penne', 'lasagne', 'tagliatelle', 'gnocchi', 'carbonara', 'bolognese'],
                         färs: ['färs', 'köttfärs', 'köttbullar', 'biffar', 'pannbiff', 'järpar', 'kebab', 'hamburgare'],
-                        korv: ['korv', 'falukorv', 'prinskorv', 'chorizo', 'bratwurst', 'istroband', 'isterband'],
+                        korv: ['korv', 'falukorv', 'prinskorv', 'chorizo', 'bratwurst', 'istroband', 'isterband'], 
                         kyckling: ['kyckling', 'chicken', 'nuggets', 'filé'],
                         pannkaka: ['pannkaka', 'pannkakor', 'plättar', 'ugnspannkaka', 'raggmunkar', 'crepes'],
-                        soppa: ['soppa', 'gulasch', 'minestrone', 'buljong']
+                        soppa: ['soppa', 'gulasch', 'minestrone', 'buljong']                                                    
                     };
 
                     const ignoredWords = [
@@ -624,6 +627,7 @@ renderDishList() {
                     'kött': { label: '🥩 Kött', color: 'bg-red-50 text-red-700' },
                     'kyckling': { label: '🍗 Kyckling', color: 'bg-orange-50 text-orange-700' },
                     'fisk': { label: '🐟 Fisk', color: 'bg-blue-50 text-blue-700' },
+                    'pasta': { label: '🍝 Pasta', color: 'bg-yellow-50 text-yellow-700' },
                     'vegetarisk': { label: '🥦 Vegetariskt', color: 'bg-emerald-50 text-emerald-700' },
                     'chark': { label: '🌭 Korv/Chark', color: 'bg-pink-50 text-pink-700' },
                     'helg': { label: '🥂 Lyx/Helg', color: 'bg-purple-50 text-purple-700' },
