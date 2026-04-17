@@ -379,62 +379,95 @@
                 a.click();
             },
 
-            async generateMenu() {
+            // Generera Matsedel
+
+async generateMenu() {
                 const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
                 const helgDays = ['Fredag', 'Lördag'];
-                if(state.dishes.length < 7) return this.notify("Du behöver minst 7 recept.");
+                const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Söndag']; // Söndag räknas som vardag här
+                
+                if(state.dishes.length < 7) return this.notify("Du behöver minst 7 recept för att jag ska kunna variera menyn.");
 
                 const newMenu = { ...state.currentMenu };
-                const usedIds = Object.values(state.currentMenu).filter(d => d).map(d => d.id);
+                let usedIds = new Set();
                 
-                const getAvailable = (cat) => state.dishes.filter(d => d.kategori === cat && !usedIds.includes(d.id)).sort(() => 0.5 - Math.random());
-                const pools = {
-                    fisk: getAvailable('fisk'),
-                    vego: getAvailable('vegetarisk'),
-                    helg: getAvailable('helg'),
-                    blandat: state.dishes.filter(d => d.kategori !== 'helg' && !usedIds.includes(d.id)).sort(() => 0.5 - Math.random())
-                };
-
-                const lockedCats = Object.entries(state.currentMenu).filter(([day, dish]) => state.lockedDays.has(day) && dish).map(([_, dish]) => dish.kategori);
-                let daysToFill = days.filter(d => !state.lockedDays.has(d));
-
-                if (!lockedCats.includes('fisk') && pools.fisk.length > 0) {
-                    const fishDayPool = daysToFill.filter(d => !helgDays.includes(d));
-                    if (fishDayPool.length > 0) {
-                        const day = fishDayPool[Math.floor(Math.random() * fishDayPool.length)];
-                        newMenu[day] = pools.fisk.pop();
-                        daysToFill = daysToFill.filter(d => d !== day);
-                    }
-                }
-
-                if (!lockedCats.includes('vegetarisk') && pools.vego.length > 0) {
-                    const vegoDayPool = daysToFill.filter(d => !helgDays.includes(d));
-                    if (vegoDayPool.length > 0) {
-                        const day = vegoDayPool[Math.floor(Math.random() * vegoDayPool.length)];
-                        newMenu[day] = pools.vego.pop();
-                        daysToFill = daysToFill.filter(d => d !== day);
-                    }
-                }
-
-                helgDays.forEach(day => {
-                    if (daysToFill.includes(day)) {
-                        newMenu[day] = pools.helg.pop() || pools.blandat.pop();
-                        daysToFill = daysToFill.filter(d => d !== day);
+                // 1. Inventera låsta rätter
+                days.forEach(day => {
+                    if (state.lockedDays.has(day) && state.currentMenu[day]) {
+                        usedIds.add(state.currentMenu[day].id);
                     }
                 });
 
-                daysToFill.forEach(day => { newMenu[day] = pools.blandat.pop(); });
+                // 2. Hjälpfunktion för att hämta rätter
+                const getPool = (cat = null) => {
+                    return state.dishes.filter(d => {
+                        const matchCat = cat ? d.kategori === cat : true;
+                        return matchCat && !usedIds.has(d.id);
+                    }).sort(() => 0.5 - Math.random());
+                };
 
+                // 3. Planera FISK (en gång i veckan på en vardag)
+                const hasLockedFish = Array.from(usedIds).some(id => 
+                    state.dishes.find(d => d.id === id)?.kategori === 'fisk'
+                );
+
+                if (!hasLockedFish) {
+                    const fishPool = getPool('fisk');
+                    const availableFishDays = vardagar.filter(d => !state.lockedDays.has(d));
+                    
+                    if (fishPool.length > 0 && availableFishDays.length > 0) {
+                        const randomDay = availableFishDays[Math.floor(Math.random() * availableFishDays.length)];
+                        const pick = fishPool[0];
+                        newMenu[randomDay] = pick;
+                        usedIds.add(pick.id);
+                    }
+                }
+
+                // 4. Planera HELG (Fredag & Lördag)
+                helgDays.forEach(day => {
+                    if (!state.lockedDays.has(day)) {
+                        const helgPool = getPool('helg');
+                        const fallbackPool = getPool();
+                        const pick = helgPool[0] || fallbackPool[0];
+                        if (pick) {
+                            newMenu[day] = pick;
+                            usedIds.add(pick.id);
+                        }
+                    }
+                });
+
+                // 5. Fyll resten med smart kategorivariation
+                // Vi vill undvika samma kategori två dagar i rad
+                days.forEach((day, index) => {
+                    if (state.lockedDays.has(day) || newMenu[day]) return; // Redan fylld (låst eller fisk/helg)
+
+                    const prevDay = days[index - 1];
+                    const nextDay = days[index + 1];
+                    const forbiddenCat = [
+                        newMenu[prevDay]?.kategori,
+                        newMenu[nextDay]?.kategori
+                    ].filter(Boolean);
+
+                    // Försök hitta en rätt som INTE har samma kategori som grannarna
+                    let pool = getPool().sort((a, b) => {
+                        // Prioritera rätter vars kategori inte användes igår
+                        const aForbidden = forbiddenCat.includes(a.kategori);
+                        const bForbidden = forbiddenCat.includes(b.kategori);
+                        return aForbidden - bForbidden;
+                    });
+
+                    const pick = pool[0];
+                    if (pick) {
+                        newMenu[day] = pick;
+                        usedIds.add(pick.id);
+                    }
+                });
+
+                // 6. Spara till Firebase
                 state.currentMenu = newMenu;
                 await setDoc(doc(db, PATHS.menu), newMenu);
                 this.renderMenu();
-                this.notify("Smart meny genererad!");
-            },
-
-            toggleLock(day) {
-                if(state.lockedDays.has(day)) state.lockedDays.delete(day);
-                else state.lockedDays.add(day);
-                this.renderMenu();
+                this.notify("Smart och varierad meny skapad!");
             },
 
 
