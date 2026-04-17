@@ -386,19 +386,22 @@ async generateMenu() {
                 const helgDays = ['Fredag', 'Lördag'];
                 const vardagar = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Söndag'];
                 
-                if(state.dishes.length < 7) return this.notify("Minst 7 recept behövs för att undvika dubbletter!");
+                if(state.dishes.length < 7) return this.notify("Du behöver minst 7 recept!");
 
-                const newMenu = { ...state.currentMenu };
-                
-                // 1. Samla ID:n för ALLA låsta rätter först
+                // --- STEG 1: Rensa allt som inte är låst ---
+                const newMenu = {};
                 let usedIds = new Set();
+
                 days.forEach(day => {
                     if (state.lockedDays.has(day) && state.currentMenu[day]) {
+                        newMenu[day] = state.currentMenu[day];
                         usedIds.add(state.currentMenu[day].id);
+                    } else {
+                        newMenu[day] = null; // Töm dagen helt!
                     }
                 });
 
-                // 2. Funktion som hämtar rätter som INTE finns i usedIds
+                // --- STEG 2: Hjälpfunktion för att hitta färsk mat ---
                 const getFreshPool = (cat = null) => {
                     return state.dishes.filter(d => {
                         const matchCat = cat ? d.kategori === cat : true;
@@ -406,22 +409,23 @@ async generateMenu() {
                     }).sort(() => 0.5 - Math.random());
                 };
 
-                // --- STEG 1: FISK ---
+                // --- STEG 3: FISK (En gång i veckan) ---
                 const hasLockedFish = Array.from(usedIds).some(id => 
                     state.dishes.find(d => d.id === id)?.kategori === 'fisk'
                 );
+                
                 if (!hasLockedFish) {
                     const fishPool = getFreshPool('fisk');
                     const availableFishDays = vardagar.filter(d => !state.lockedDays.has(d));
                     if (fishPool.length > 0 && availableFishDays.length > 0) {
-                        const day = availableFishDays[0]; // Ta första lediga vardag
+                        const day = availableFishDays[0];
                         const pick = fishPool[0];
                         newMenu[day] = pick;
-                        usedIds.add(pick.id); // Spärra ID direkt!
+                        usedIds.add(pick.id);
                     }
                 }
 
-                // --- STEG 2: HELG (Fredag & Lördag) ---
+                // --- STEG 4: HELG (Fredag & Lördag) ---
                 helgDays.forEach(day => {
                     if (!state.lockedDays.has(day)) {
                         const helgPool = getFreshPool('helg');
@@ -429,28 +433,21 @@ async generateMenu() {
                         const pick = helgPool[0] || fallbackPool[0];
                         if (pick) {
                             newMenu[day] = pick;
-                            usedIds.add(pick.id); // Spärra ID direkt!
+                            usedIds.add(pick.id);
                         }
                     }
                 });
 
-                // --- STEG 3: RESTEN (Vardagarna + Söndag) ---
-                // Här kör vi en loop som uppdaterar usedIds för VARJE dag
+                // --- STEG 5: RESTEN (Fyll de tomma luckorna) ---
                 days.forEach(day => {
-                    // Om dagen redan är fylld (låst eller fisk/helg), hoppa över
-                    if (state.lockedDays.has(day) || (newMenu[day] && usedIds.has(newMenu[day].id))) {
-                        return;
-                    }
+                    if (newMenu[day]) return; // Hoppa över om redan fylld (låst/fisk/helg)
 
-                    // Hämta en helt färsk pool där ID:n som valts nyss är borta
                     let pool = getFreshPool();
-
-                    // Försök undvika samma kategori som igår
+                    
+                    // Försök variera kategori mot föregående dag
                     const prevDay = days[days.indexOf(day) - 1];
                     const prevCat = newMenu[prevDay]?.kategori;
-                    
                     if (pool.length > 1 && pool[0].kategori === prevCat) {
-                        // Om första rätten har samma kategori, flytta den sist i poolen
                         const item = pool.shift();
                         pool.push(item);
                     }
@@ -458,17 +455,17 @@ async generateMenu() {
                     const pick = pool[0];
                     if (pick) {
                         newMenu[day] = pick;
-                        usedIds.add(pick.id); // Spärra ID omedelbart för nästa varv i loopen!
+                        usedIds.add(pick.id);
                     }
                 });
 
-                // 4. Spara och uppdatera
+                // --- STEG 6: Spara och bekräfta ---
                 state.currentMenu = newMenu;
                 await setDoc(doc(db, PATHS.menu), newMenu);
                 this.renderMenu();
-                this.notify("Smart meny utan dubbletter klar!");
+                this.notify("Smart meny med 7 unika rätter klar!");
                 
-                console.log("Valda ID:n för veckan:", Array.from(usedIds));
+                console.log("Valda unika ID:n för veckan (" + usedIds.size + " st):", Array.from(usedIds));
             },
 
 
