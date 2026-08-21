@@ -512,7 +512,7 @@ async checkSchoolClashes() {
                         weekDates[name] = d.toISOString().split('T')[0];
                     });
 
-                    const apiUrl = `https://meny-api.mateo.se/api/v1/days/565?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
+                    const apiUrl = `https://meny-api.mateo.se/api/v1/days/572?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
                     const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
                     const data = await res.json();
                     const schoolDays = Array.isArray(data) ? data : (data.data || []);
