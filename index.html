@@ -538,7 +538,7 @@
                 this.notify("Varierad meny skapad!");
             },
 
-            // SKOLKOLL MED PROXY-RESERVER
+// SKOLKOLL (Med Inpackad Data-lösning för CORS)
             async checkSchoolClashes() {
                 const btn = document.getElementById('clash-btn');
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...';
@@ -558,31 +558,29 @@
                     });
 
                     const targetUrl = `https://meny-api.mateo.se/api/v1/days/572?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
-                    
-                    const endpoints = [
-                        targetUrl,
-                        `https://corsproxy.org/?${encodeURIComponent(targetUrl)}`,
-                        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-                        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
-                    ];
-
                     let data = null;
-                    let lastError = null;
 
-                    for (const url of endpoints) {
-                        try {
-                            const res = await fetch(url);
-                            if (res.ok) {
-                                data = await res.json();
-                                if (typeof data === 'string') data = JSON.parse(data);
-                                if (data) break;
+                    // METOD 1: AllOrigins Wrapper (Packar in datan och tvingar fram godkänd CORS)
+                    try {
+                        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+                        if (res.ok) {
+                            const wrapper = await res.json();
+                            if (wrapper.contents) {
+                                // Vi packar upp datan inuti 'contents'
+                                data = typeof wrapper.contents === 'string' ? JSON.parse(wrapper.contents) : wrapper.contents;
                             }
-                        } catch (err) {
-                            lastError = err;
                         }
+                    } catch(err) { console.log("AllOrigins wrapper misslyckades."); }
+
+                    // METOD 2: Corsproxy.io som backup
+                    if (!data) {
+                        try {
+                            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+                            if (res.ok) data = await res.json();
+                        } catch(err) { console.log("Corsproxy misslyckades."); }
                     }
 
-                    if (!data) throw lastError || new Error("Kunde inte hämta data");
+                    if (!data) throw new Error("Kunde inte hämta menydata via någon proxy.");
 
                     const schoolDays = Array.isArray(data) ? data : (data.data || []);
                     state.clashes = {};
@@ -647,7 +645,7 @@
                     
                 } catch(e) { 
                     console.error("Skolkollen error:", e);
-                    this.notify("Kunde inte hämta skolmaten."); 
+                    this.notify("Kunde inte hämta skolmaten just nu."); 
                 } finally { 
                     btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; 
                 }
