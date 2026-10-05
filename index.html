@@ -493,7 +493,7 @@ async generateMenu() {
             },
 
 
-// Krock-koll med skolmaten
+// Krock-koll med skolmaten (med automatisk proxy-reserv)
             async checkSchoolClashes() {
                 const btn = document.getElementById('clash-btn');
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...';
@@ -512,17 +512,34 @@ async generateMenu() {
                         weekDates[name] = d.toISOString().split('T')[0];
                     });
 
-                    const apiUrl = `https://meny-api.mateo.se/api/v1/days/572?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
+                    const targetUrl = `https://meny-api.mateo.se/api/v1/days/572?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
                     
-                    // Ny stabil proxy för att kringgå CORS/403
-                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
-                    const res = await fetch(proxyUrl);
-                    
-                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                    
-                    const data = await res.json();
-                    const schoolDays = Array.isArray(data) ? data : (data.data || []);
+                    // Reservkedja: Direktanrop först, därefter två olika proxies
+                    const endpoints = [
+                        targetUrl,
+                        `https://corsproxy.org/?${encodeURIComponent(targetUrl)}`,
+                        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+                    ];
 
+                    let data = null;
+                    let lastError = null;
+
+                    for (const url of endpoints) {
+                        try {
+                            const res = await fetch(url);
+                            if (res.ok) {
+                                data = await res.json();
+                                if (typeof data === 'string') data = JSON.parse(data);
+                                if (data) break;
+                            }
+                        } catch (err) {
+                            lastError = err;
+                        }
+                    }
+
+                    if (!data) throw lastError || new Error("Kunde inte hämta data");
+
+                    const schoolDays = Array.isArray(data) ? data : (data.data || []);
                     state.clashes = {};
 
                     const categories = {
