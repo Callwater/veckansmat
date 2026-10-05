@@ -538,7 +538,7 @@
                 this.notify("Varierad meny skapad!");
             },
 
-// SKOLKOLL (Med Inpackad Data-lösning för CORS)
+            // SKOLKOLL (Med 4 inbyggda reserver)
             async checkSchoolClashes() {
                 const btn = document.getElementById('clash-btn');
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...';
@@ -558,29 +558,40 @@
                     });
 
                     const targetUrl = `https://meny-api.mateo.se/api/v1/days/572?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
+                    
+                    // Lista över proxies att försöka med i tur och ordning
+                    const proxyEndpoints = [
+                        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+                        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+                        `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
+                        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+                    ];
+
                     let data = null;
+                    let lastError = null;
 
-                    // METOD 1: AllOrigins Wrapper (Packar in datan och tvingar fram godkänd CORS)
-                    try {
-                        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-                        if (res.ok) {
-                            const wrapper = await res.json();
-                            if (wrapper.contents) {
-                                // Vi packar upp datan inuti 'contents'
-                                data = typeof wrapper.contents === 'string' ? JSON.parse(wrapper.contents) : wrapper.contents;
-                            }
-                        }
-                    } catch(err) { console.log("AllOrigins wrapper misslyckades."); }
-
-                    // METOD 2: Corsproxy.io som backup
-                    if (!data) {
+                    for (const proxyUrl of proxyEndpoints) {
                         try {
-                            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-                            if (res.ok) data = await res.json();
-                        } catch(err) { console.log("Corsproxy misslyckades."); }
+                            const res = await fetch(proxyUrl);
+                            if (res.ok) {
+                                let result = await res.json();
+                                // Om vi använde AllOrigins "get"-metod är datan inpackad
+                                if (proxyUrl.includes('allorigins') && result.contents) {
+                                    data = typeof result.contents === 'string' ? JSON.parse(result.contents) : result.contents;
+                                } else {
+                                    data = result;
+                                }
+                                
+                                // Avbryt loopen om vi fick bra data
+                                if (data) break; 
+                            }
+                        } catch (err) {
+                            lastError = err;
+                            console.log(`Proxy misslyckades: ${proxyUrl}`);
+                        }
                     }
 
-                    if (!data) throw new Error("Kunde inte hämta menydata via någon proxy.");
+                    if (!data) throw lastError || new Error("Alla proxies misslyckades.");
 
                     const schoolDays = Array.isArray(data) ? data : (data.data || []);
                     state.clashes = {};
@@ -645,7 +656,7 @@
                     
                 } catch(e) { 
                     console.error("Skolkollen error:", e);
-                    this.notify("Kunde inte hämta skolmaten just nu."); 
+                    this.notify("Kunde inte hämta skolmaten."); 
                 } finally { 
                     btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; 
                 }
