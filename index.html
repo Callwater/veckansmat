@@ -538,7 +538,7 @@
                 this.notify("Varierad meny skapad!");
             },
 
-            // SKOLKOLL (Med 4 inbyggda reserver)
+// SKOLKOLL (Med egen Cloudflare Worker)
             async checkSchoolClashes() {
                 const btn = document.getElementById('clash-btn');
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Synkar...';
@@ -557,42 +557,13 @@
                         weekDates[name] = d.toISOString().split('T')[0];
                     });
 
-                    const targetUrl = `https://meny-api.mateo.se/api/v1/days/572?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
+                    // 👇 BYT UT DENNA URL MOT DIN EGNA CLOUDFLARE WORKER-URL 👇
+                    const proxyUrl = `https://skolmat-proxy.br250power.workers.dev/?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
+
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) throw new Error("Proxyn svarade med felkod");
                     
-                    // Lista över proxies att försöka med i tur och ordning
-                    const proxyEndpoints = [
-                        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
-                        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-                        `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-                        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
-                    ];
-
-                    let data = null;
-                    let lastError = null;
-
-                    for (const proxyUrl of proxyEndpoints) {
-                        try {
-                            const res = await fetch(proxyUrl);
-                            if (res.ok) {
-                                let result = await res.json();
-                                // Om vi använde AllOrigins "get"-metod är datan inpackad
-                                if (proxyUrl.includes('allorigins') && result.contents) {
-                                    data = typeof result.contents === 'string' ? JSON.parse(result.contents) : result.contents;
-                                } else {
-                                    data = result;
-                                }
-                                
-                                // Avbryt loopen om vi fick bra data
-                                if (data) break; 
-                            }
-                        } catch (err) {
-                            lastError = err;
-                            console.log(`Proxy misslyckades: ${proxyUrl}`);
-                        }
-                    }
-
-                    if (!data) throw lastError || new Error("Alla proxies misslyckades.");
-
+                    const data = await res.json();
                     const schoolDays = Array.isArray(data) ? data : (data.data || []);
                     state.clashes = {};
 
