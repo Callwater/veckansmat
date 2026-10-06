@@ -29,7 +29,7 @@
         }
 
         .menu-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
             border-left-width: 6px;
         }
 
@@ -546,7 +546,7 @@
                         weekDates[name] = d.toISOString().split('T')[0];
                     });
 
-                    // 👇 BYT UT DENNA MOT DIN EGNA CLOUDFLARE WORKER-LÄNK 👇
+                    // 👇 BYT UT DENNA LÄNK MOT DIN EGNA CLOUDFLARE WORKER 👇
                     const proxyUrl = `https://skolmat-proxy.br250power.workers.dev/?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
 
                     const res = await fetch(proxyUrl);
@@ -558,4 +558,310 @@
 
                     const categories = {
                         pasta: ['pasta', 'makaroner', 'spaghetti', 'fusilli', 'penne', 'lasagne', 'tagliatelle', 'gnocchi', 'carbonara', 'bolognese', 'tortellini', 'ravioli'], 
-                        f
+                        fisk: ['sej', 'torsk', 'lax', 'spätta', 'fisk', 'strömming', 'kolja', 'hoki', 'fiskpinnar'],
+                        färs: ['färs', 'köttfärs', 'köttbullar', 'biffar', 'pannbiff', 'järpar', 'kebab', 'hamburgare'],
+                        korv: ['korv', 'falukorv', 'prinskorv', 'chorizo', 'bratwurst', 'istroband', 'isterband'], 
+                        kyckling: ['kyckling', 'chicken', 'nuggets', 'filé'],
+                        pannkaka: ['pannkaka', 'pannkakor', 'plättar', 'ugnspannkaka', 'raggmunkar', 'crepes'],
+                        soppa: ['soppa', 'gulasch', 'minestrone', 'buljong']                                     
+                    };
+
+                    const ignoredWords = [
+                        'potatis', 'potatismos', 'ris', 'bulgur', 'couscous', 'stuvad', 'stuvade', 
+                        'kokt', 'kokta', 'stekt', 'stekta', 'ugnsbakad', 'med', 'till', 'sås'
+                    ];
+
+                    ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'].forEach(dayName => {
+                        const targetDate = weekDates[dayName];
+                        const schoolDay = schoolDays.find(d => d.date && d.date.includes(targetDate));
+                        if (!schoolDay || !schoolDay.meals) return;
+
+                        const homeDish = state.currentMenu[dayName];
+                        if (!homeDish) return;
+
+                        const hName = homeDish.namn.toLowerCase();
+                        const sMeal = schoolDay.meals.find(m => m.type === "Lunch 1");
+                        if (!sMeal) return;
+                        const sName = sMeal.name.toLowerCase();
+
+                        let isClash = false;
+
+                        for (const [cat, words] of Object.entries(categories)) {
+                            const homeHasCat = words.some(w => hName.includes(w));
+                            const schoolHasCat = words.some(w => sName.includes(w));
+                            
+                            if (homeHasCat && schoolHasCat) {
+                                isClash = true;
+                                break;
+                            }
+                        }
+
+                        if (!isClash) {
+                            const hKeywords = hName.replace(/[^a-zåäö ]/g, " ").split(" ")
+                                .filter(w => w.length > 3 && !ignoredWords.includes(w));
+                            
+                            if (hKeywords.some(word => sName.includes(word))) {
+                                isClash = true;
+                            }
+                        }
+
+                        if (isClash) {
+                            state.clashes[dayName] = sMeal.name;
+                        }
+                    });
+
+                    this.renderMenu();
+                    const count = Object.keys(state.clashes).length;
+                    this.notify(count > 0 ? `${count} krockar hittade!` : "Inga krockar hittades.");
+                    
+                } catch(e) { 
+                    console.error("Skolkollen error:", e);
+                    this.notify("Kunde inte hämta skolmaten."); 
+                } finally { 
+                    btn.innerHTML = '<i class="fas fa-school mr-1 text-xs"></i> Skolkollen'; 
+                }
+            },
+
+            /* --- DRAG & DROP LOGIK --- */
+            handleDragStart(e, day) {
+                e.dataTransfer.setData('text/plain', day);
+                setTimeout(() => e.target.classList.add('opacity-50'), 10);
+            },
+            
+            handleDragEnd(e) {
+                e.target.classList.remove('opacity-50');
+                window.app.renderMenu();
+            },
+            
+            handleDragOver(e) {
+                e.preventDefault(); // Krävs för att tillåta drop
+                e.currentTarget.classList.add('border-emerald-400', 'bg-emerald-50/50');
+            },
+            
+            handleDragLeave(e) {
+                e.currentTarget.classList.remove('border-emerald-400', 'bg-emerald-50/50');
+            },
+            
+            async handleDrop(e, targetDay) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('border-emerald-400', 'bg-emerald-50/50');
+                const sourceDay = e.dataTransfer.getData('text/plain');
+                
+                if (sourceDay && sourceDay !== targetDay) {
+                    // Byt plats på maträtterna i minnet
+                    const tempDish = state.currentMenu[sourceDay];
+                    state.currentMenu[sourceDay] = state.currentMenu[targetDay];
+                    state.currentMenu[targetDay] = tempDish;
+                    
+                    // Säkerställ att eventuella hänglås följer med maträtten till den nya dagen
+                    const sourceWasLocked = state.lockedDays.has(sourceDay);
+                    const targetWasLocked = state.lockedDays.has(targetDay);
+                    
+                    if(targetWasLocked) state.lockedDays.add(sourceDay); else state.lockedDays.delete(sourceDay);
+                    if(sourceWasLocked) state.lockedDays.add(targetDay); else state.lockedDays.delete(targetDay);
+                    
+                    // Spara till databasen
+                    await setDoc(doc(db, PATHS.menu), state.currentMenu);
+                    this.notify(`Bytte plats på ${sourceDay} och ${targetDay}!`);
+                }
+                this.renderMenu();
+            },
+
+            renderMenu() {
+                const container = document.getElementById('menu-result');
+                if(!container) return;
+                container.innerHTML = '';
+                ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'].forEach(day => {
+                    const dish = state.currentMenu[day];
+                    const locked = state.lockedDays.has(day);
+                    const clash = state.clashes[day];
+                    
+                    // Har lagt till drag-and-drop attribut på div:en samt en pl-8 (padding-left)
+                    container.innerHTML += `
+                        <div class="menu-card glass-card p-4 pl-8 rounded-2xl shadow-sm relative ${locked ? 'border-amber-400 bg-amber-50/50' : 'border-emerald-500'} cursor-move"
+                             draggable="true"
+                             ondragstart="window.app.handleDragStart(event, '${day}')"
+                             ondragend="window.app.handleDragEnd(event)"
+                             ondragover="window.app.handleDragOver(event)"
+                             ondragleave="window.app.handleDragLeave(event)"
+                             ondrop="window.app.handleDrop(event, '${day}')">
+                             
+                            <!-- Grepp-ikon för Drag & Drop -->
+                            <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-50 hover:opacity-100 no-print cursor-move">
+                                <i class="fas fa-grip-vertical"></i>
+                            </div>
+                            
+                            ${clash ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-black shadow-lg animate-pulse z-10 uppercase tracking-tighter">SKOLKROCK: ${clash}</div>` : ''}
+                            
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">${day}</span>
+                                <div class="flex gap-2 no-print items-center">
+                                    <button onclick="window.app.openDishSelector('${day}')" class="text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 bg-white shadow-sm border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1 transition-all" title="Välj en annan rätt från banken">
+                                        <i class="fas fa-exchange-alt"></i> Byt ut
+                                    </button>
+                                    <button onclick="window.app.toggleLock('${day}')" class="${locked ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'} p-1 transition-colors" title="Lås dag">
+                                        <i class="fas ${locked ? 'fa-lock' : 'fa-lock-open'}"></i>
+                                    </button>
+                                    <button onclick="window.app.editDish('${dish?.id}')" class="text-slate-300 hover:text-blue-500 p-1 transition-colors" title="Redigera recept">
+                                        <i class="fas fa-pen text-[10px]"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-lg">${dish ? dish.namn : '<span class="text-slate-300 italic">Inget valt...</span>'}</h3>
+                            <p class="text-xs text-slate-500 mt-1 truncate">${dish ? (dish.ingredienser || []).join(', ') : ''}</p>
+                        </div>`;
+                });
+                this.generateShoppingList();
+            },
+
+            renderDishList() {
+                const container = document.getElementById('all-dishes-list');
+                if(!container) return;
+                container.innerHTML = '';
+
+                const catInfo = {
+                    'kött': { label: '🥩 Kött', color: 'bg-red-50 text-red-700' },
+                    'kyckling': { label: '🍗 Kyckling', color: 'bg-orange-50 text-orange-700' },
+                    'fisk': { label: '🐟 Fisk', color: 'bg-blue-50 text-blue-700' },
+                    'pasta': { label: '🍝 Pasta', color: 'bg-yellow-50 text-yellow-700' },
+                    'vegetarisk': { label: '🥦 Vegetariskt', color: 'bg-emerald-50 text-emerald-700' },
+                    'chark': { label: '🌭 Korv/Chark', color: 'bg-pink-50 text-pink-700' },
+                    'helg': { label: '🥂 Lyx/Helg', color: 'bg-purple-50 text-purple-700' },
+                    'övrigt': { label: '🍴 Övrigt', color: 'bg-slate-50 text-slate-700' }
+                };
+
+                const grouped = {};
+                state.dishes.forEach(d => {
+                    const cat = d.kategori || 'övrigt';
+                    if (!grouped[cat]) grouped[cat] = [];
+                    grouped[cat].push(d);
+                });
+
+                const sortedCats = Object.keys(grouped).sort((a, b) => {
+                    const order = Object.keys(catInfo);
+                    return order.indexOf(a) - order.indexOf(b);
+                });
+
+                sortedCats.forEach(cat => {
+                    const info = catInfo[cat] || { label: cat.toUpperCase(), color: 'bg-slate-50 text-slate-700' };
+                    const dishes = grouped[cat].sort((a, b) => a.namn.localeCompare(b.namn));
+
+                    container.innerHTML += `
+                        <div class="category-section mt-6 mb-2">
+                            <h3 class="flex items-center gap-2 px-2 py-1 mb-3 text-sm font-black uppercase tracking-widest ${info.color} rounded-lg w-fit">
+                                ${info.label} <span class="opacity-50 text-[10px] font-medium">(${dishes.length})</span>
+                            </h3>
+                            <div class="grid gap-3">
+                                ${dishes.map(d => `
+                                    <div class="dish-item bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center transition-all hover:border-emerald-200">
+                                        <div class="overflow-hidden">
+                                            <h4 class="font-bold text-slate-800 text-sm">${d.namn}</h4>
+                                            <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>
+                                        </div>
+                                        <div class="flex gap-4 ml-4 no-print">
+                                            <button onclick="window.app.editDish('${d.id}')" class="text-slate-300 hover:text-emerald-500"><i class="fas fa-pen"></i></button>
+                                            <button onclick="window.app.deleteDish('${d.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+            },
+
+            generateShoppingList() {
+                const container = document.getElementById('shopping-list-content');
+                const card = document.getElementById('shopping-list-card');
+                let all = [];
+                Object.values(state.currentMenu).forEach(d => { if(d?.ingredienser) all = [...all, ...d.ingredienser]; });
+                if(all.length === 0) { if(card) card.classList.add('hidden'); return; }
+                if(card) card.classList.remove('hidden');
+
+                const cats = { 'Frukt & Grönt': [], 'Mejeri': [], 'Kött/Fisk': [], 'Chark': [], 'Skafferi': [], 'Fryst': [], 'Dryck': [] };
+                (state.availableCategories || []).forEach(c => cats[c] = []);
+                cats['Basvaror'] = []; cats['Övrigt'] = [];
+
+                const keywords = { 
+                    'Frukt & Grönt': ['tomat','gurka','lök','sallad','kål','morot','paprika','citron'], 
+                    'Mejeri': ['mjölk','ost','ägg','smör','grädde','fraiche','yoghurt'], 
+                    'Kött/Fisk': ['lax','färs','kyckling','bacon','skinka','biff','torsk'] 
+                };
+
+                const uniqueIngs = [...new Set(all.map(i => i.toLowerCase().trim()))];
+                uniqueIngs.forEach(ing => {
+                    let userCat = state.customCategories[ing];
+                    if (userCat === 'Grönt' || userCat === 'Frukt och Grönt') userCat = 'Frukt & Grönt';
+
+                    if(state.basvaror.has(ing)) { cats['Basvaror'].push(ing); return; }
+                    if(userCat && cats[userCat]) { cats[userCat].push(ing); return; }
+
+                    let foundByKeyword = false;
+                    for(const [categoryName, keys] of Object.entries(keywords)) { 
+                        if(keys.some(key => ing.includes(key))) { cats[categoryName].push(ing); foundByKeyword = true; break; } 
+                    }
+                    if(!foundByKeyword) cats['Övrigt'].push(ing);
+                });
+
+                if(container) container.innerHTML = Object.entries(cats).map(([c, items]) => {
+                    if(items.length === 0) return '';
+                    const isBasvara = c === 'Basvaror';
+                    return `
+                        <div class="${isBasvara ? 'mt-6 pt-4 border-t border-amber-200 opacity-60' : 'mt-2'}">
+                            <h4 class="text-[10px] font-black uppercase tracking-tighter mb-2 text-amber-800/50">${c}</h4>
+                            <ul class="space-y-2">
+                                ${items.map(i => `
+                                    <li class="flex justify-between group py-1 border-b border-slate-100 print:border-slate-200">
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" class="w-5 h-5 rounded border-amber-300 text-emerald-600 no-print">
+                                            <span class="hidden print:inline text-slate-400 mr-2">•</span>
+                                            <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>
+                                        </div>
+                                        <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" class="text-amber-400 hover:text-emerald-600 p-1 no-print">
+                                            <i class="fas fa-tag text-[10px]"></i>
+                                        </button>
+                                    </li>`).join('')}
+                            </ul>
+                        </div>`;
+                }).join('');
+            },
+
+            notify(msg) {
+                const t = document.getElementById('toast');
+                if(!t) return;
+                t.innerText = msg; t.classList.remove('opacity-0');
+                setTimeout(() => t.classList.add('opacity-0'), 2500);
+            },
+
+            filterDishes() {
+                const t = document.getElementById('search-input').value.toLowerCase();
+                document.querySelectorAll('#all-dishes-list > div').forEach(i => i.style.display = i.innerText.toLowerCase().includes(t) ? 'block' : 'none');
+            },
+
+            copyList() {
+                const items = Array.from(document.querySelectorAll('#shopping-list-content span:not(.print\\:inline)')).map(s => s.innerText);
+                navigator.clipboard.writeText("INKÖPSLISTA:\n" + items.join("\n"));
+                this.notify("Kopierad!");
+            }
+        };
+
+        // --- STARTA UP ---
+        document.getElementById('room-id-val').innerText = state.room;
+        document.getElementById('room-label').innerText = `| ${state.room}`;
+
+        onSnapshot(collection(db, PATHS.dishes), snap => {
+            state.dishes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-check-circle text-emerald-300"></i> Online';
+            window.app.renderDishList();
+            window.app.renderMenu();
+        }, () => { document.getElementById('connection-status').innerText = 'Offline/Fel'; });
+
+        onSnapshot(doc(db, PATHS.menu), snap => { if(snap.exists()) { state.currentMenu = snap.data(); window.app.renderMenu(); } });
+        onSnapshot(doc(db, "globala_inställningar", "kategorier"), snap => { if(snap.exists()) { state.customCategories = snap.data()?.map || {}; window.app.renderMenu(); } });
+        onSnapshot(doc(db, "globala_inställningar", "basvaror"), snap => { if(snap.exists() && snap.data().items) { state.basvaror = new Set(snap.data().items.map(i => i.toLowerCase())); window.app.renderMenu(); } });
+        onSnapshot(doc(db, "globala_inställningar", "inställningar"), snap => { if(snap.exists()) { state.availableCategories = snap.data().categories || []; window.app.renderSettingsCategories(); window.app.renderMenu(); } });
+
+        window.app.showTab('menu');
+    </script>
+</body>
+</html>
