@@ -35,44 +35,233 @@
 
         .menu-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
 
+        /* --- Vacker Utskriftsdesign --- */
         @media print {
-            .no-print, nav, header, #action-bar, button, .fas.fa-tag, input[type="checkbox"] { 
+            @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Quicksand:wght@500;700&display=swap');
+            
+            @page {
+                margin: 0;
+                size: A4 portrait;
+            }
+            
+            /* Göm webb-UI */
+            .no-print, nav, header, #action-bar, button, .fas.fa-tag, input[type="checkbox"], #temp-selector, #category-modal { 
                 display: none !important; 
             }
+            
             body { 
-                background: white !important; 
-                color: black !important;
+                background: #fdfbf7 !important; 
+                color: #2b2b2b !important; 
                 overflow: visible !important;
                 height: auto !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                font-family: 'Quicksand', sans-serif !important;
+                padding: 0 !important;
             }
+            
             main { 
                 padding: 0 !important; 
                 max-width: 100% !important;
                 overflow: visible !important;
             }
-            #view-menu { display: block !important; }
+
+            #view-menu {
+                display: block !important;
+                padding: 1.5cm 2cm;
+                min-height: 100vh;
+                box-sizing: border-box;
+                position: relative;
+            }
+
+            /* Dynamisk rubrik som hämtar veckonummer via kod */
+            #view-menu::before {
+                content: attr(data-title);
+                display: block;
+                text-align: center;
+                font-family: 'Caveat', cursive;
+                font-size: 55px;
+                font-weight: 700;
+                color: #2d4a36 !important;
+                margin-bottom: 30px;
+                letter-spacing: 1px;
+            }
+
             #menu-result { 
                 display: flex !important; 
-                flex-direction: column !important; 
-                gap: 10px;
-                margin-bottom: 50px;
+                flex-direction: column !important;
+                gap: 15px !important; 
+                margin-bottom: 0 !important;
             }
+            
             .menu-card { 
-                break-inside: avoid; 
-                border: 1px solid #eee !important; 
-                background: white !important;
-                padding: 12px !important;
-                border-radius: 8px !important;
-                width: 100% !important;
+                break-inside: avoid;
+                border: none !important;
+                border-radius: 20px !important; 
+                padding: 15px 25px !important;
+                display: flex !important;
+                flex-direction: row !important; 
+                align-items: center !important;
+                justify-content: space-between !important;
+                min-height: 95px;
+                position: relative;
+                box-shadow: none !important;
             }
+
+            /* Pedagogisk Färgkodning */
+            .menu-card:nth-child(1) { background-color: #4ade80 !important; } /* Mån - Grön */
+            .menu-card:nth-child(2) { background-color: #38bdf8 !important; } /* Tis - Blå */
+            .menu-card:nth-child(3) { background-color: #ffffff !important; border: 2px solid #cbd5e1 !important; } /* Ons - Vit */
+            .menu-card:nth-child(4) { background-color: #b47e5b !important; } /* Tor - Brun */
+            .menu-card:nth-child(5) { background-color: #fde047 !important; } /* Fre - Gul */
+            .menu-card:nth-child(6) { background-color: #f9a8d4 !important; } /* Lör - Rosa */
+            .menu-card:nth-child(7) { background-color: #ef4444 !important; } /* Sön - Röd */
+
+            /* Dag-namnet (Betydligt större nu) */
+            .menu-card span.text-\\[10px\\] {
+                font-family: 'Caveat', cursive;
+                font-size: 36px !important; /* Ändrad från 26 till 36 */
+                line-height: 0.9 !important;
+                color: #000000 !important; 
+                font-weight: 700 !important;
+                text-transform: none !important;
+                letter-spacing: normal !important;
+                margin-bottom: 4px !important;
+                display: inline-block;
+            }
+
+            /* Hjärtat till vänster */
+            .menu-card::before {
+                content: "♡";
+                position: absolute;
+                left: 15px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 16px;
+                color: #000000 !important;
+            }
+
+            /* Tvingar texten att stanna inom ramarna och radbryta */
+            .print-text-content {
+                padding-left: 20px !important;
+                flex: 1 1 0% !important; /* Tar upp all tillgänglig plats */
+                min-width: 0 !important; /* Tvingar flexbox att krympa om texten är för lång */
+                padding-right: 15px !important;
+            }
+            
+            .menu-card h3 { 
+                font-size: 19px !important; 
+                margin: 0 !important;
+                color: #111111 !important;
+                font-weight: 700 !important;
+                white-space: normal !important; /* Tillåter radbrytning */
+                line-height: 1.2 !important;
+            }
+            
+            .menu-card p {
+                font-size: 13px !important;
+                color: #222222 !important;
+                margin-top: 4px !important;
+                font-weight: 500 !important;
+                white-space: normal !important; /* Radbryt ingredienser */
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important; /* Max 2 rader, sen lägger den till ... */
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+                line-height: 1.3 !important;
+            }
+
+            /* Skolkrock */
+            .menu-card .absolute.-top-3 {
+                top: 5px !important;
+                right: 15px !important;
+                left: auto !important;
+                transform: none !important;
+                font-family: sans-serif;
+            }
+
+            /* Låser bilden exakt så att alla hamnar rakt under varandra */
+            .food-image {
+                flex: 0 0 75px !important; /* Tillåter varken krympning eller förstoring */
+                width: 75px !important;
+                height: 75px !important;
+                border-radius: 50% !important;
+                object-fit: cover !important;
+                border: 3px solid white !important;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.15) !important;
+                margin-left: auto !important; /* Knuffar bilden maximalt åt höger */
+                background-color: white !important;
+            }
+
+            /* --- INKÖPSLISTAN --- */
             #shopping-list-card { 
                 display: block !important;
-                break-before: page;
-                margin-top: 0 !important;
+                break-before: page; 
                 background: white !important;
                 border: none !important;
+                padding: 1.5cm 2cm !important;
+                min-height: 100vh;
+                box-sizing: border-box;
+                border-radius: 0 !important;
             }
-            h3 { font-size: 24px !important; margin-bottom: 15px !important; }
+            
+            #shopping-list-card h3 {
+                color: #2d4a36 !important;
+                font-family: 'Caveat', cursive;
+                font-size: 45px !important;
+                text-align: center;
+                border: none !important;
+                margin-bottom: 30px !important;
+                letter-spacing: normal !important;
+                text-transform: none !important;
+            }
+
+            #shopping-list-card h3 .fas { display: none !important; }
+            
+            #shopping-list-content {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr 1fr !important;
+                gap: 20px 30px !important;
+            }
+            
+            #shopping-list-content > div {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                border: none !important;
+                break-inside: avoid;
+            }
+            
+            #shopping-list-content h4 {
+                font-family: 'Caveat', cursive;
+                font-size: 22px !important;
+                color: #2d4a36 !important;
+                border-bottom: 2px solid #eaf1e3;
+                padding-bottom: 4px;
+                margin-bottom: 8px;
+                text-transform: none !important;
+            }
+            
+            #shopping-list-content li {
+                padding: 5px 0 !important;
+                border: none !important;
+            }
+            
+            #shopping-list-content span.text-sm {
+                font-size: 14px !important;
+                color: #2b2b2b !important;
+                font-weight: 500 !important;
+            }
+
+            #shopping-list-content li::before {
+                content: "☐";
+                color: #2d4a36;
+                font-size: 18px;
+                margin-right: 8px;
+                line-height: 1;
+                font-family: sans-serif;
+            }
+            
+            #total-price-tag { display: none !important; }
         }
     </style>
 </head>
@@ -147,6 +336,7 @@
                 </div>
                 <div class="space-y-4">
                     <input type="text" id="new-name" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Rättens namn...">
+                    <input type="url" id="new-image" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Länk till bild (frivilligt)...">
                     <select id="new-category" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none transition-all">
                         <option value="kött">🥩 Kött</option>
                         <option value="kyckling">🍗 Kyckling</option>
@@ -226,6 +416,18 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        // --- RÄKNA UT VECKONUMMER ---
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+        }
+
+        // LÄGG IN VECKONUMMER I UTSKRIFTSRUBRIKEN
+        const nuvarandeVecka = getWeekNumber(new Date());
+        document.getElementById('view-menu').setAttribute('data-title', `Veckans matlista v.${nuvarandeVecka}`);
 
         const firebaseConfig = {
             apiKey: "AIzaSyA4tVwDuLbDIRTt6O9gnghpJRBOXjD6fI0",
@@ -422,10 +624,18 @@
 
             async saveDish() {
                 const name = document.getElementById('new-name').value.trim();
+                const imgUrl = document.getElementById('new-image').value.trim();
                 const cat = document.getElementById('new-category').value;
                 const ingStr = document.getElementById('new-ingredients').value.trim();
-                if(!name || !ingStr) return this.notify("Fyll i allt.");
-                const dishData = { namn: name, kategori: cat, ingredienser: ingStr.split(',').map(i => i.trim()).filter(i => i) };
+                if(!name || !ingStr) return this.notify("Fyll i namn och ingredienser.");
+                
+                const dishData = { 
+                    namn: name, 
+                    kategori: cat, 
+                    ingredienser: ingStr.split(',').map(i => i.trim()).filter(i => i),
+                    bild: imgUrl 
+                };
+                
                 try {
                     if(state.editingId) await updateDoc(doc(db, PATHS.dishes, state.editingId), dishData);
                     else await addDoc(collection(db, PATHS.dishes), dishData);
@@ -446,6 +656,7 @@
                 if(!dish) return;
                 state.editingId = id;
                 document.getElementById('new-name').value = dish.namn;
+                document.getElementById('new-image').value = dish.bild || '';
                 document.getElementById('new-category').value = dish.kategori || 'övrigt';
                 document.getElementById('new-ingredients').value = (dish.ingredienser || []).join(', ');
                 document.getElementById('form-title').innerText = "Redigera Recept";
@@ -455,6 +666,7 @@
             resetForm() {
                 state.editingId = null;
                 document.getElementById('new-name').value = '';
+                document.getElementById('new-image').value = '';
                 document.getElementById('new-ingredients').value = '';
                 document.getElementById('form-title').innerText = "Skapa Recept";
             },
@@ -469,6 +681,7 @@
                         for (const d of rawList) {
                             await addDoc(collection(db, PATHS.dishes), {
                                 namn: d.namn || d.title,
+                                bild: d.bild || d.image || "",
                                 ingredienser: Array.isArray(d.ingredienser) ? d.ingredienser : d.ingredients,
                                 kategori: d.kategori || "övrigt"
                             });
@@ -679,7 +892,6 @@
                 }
             },
 
-            /* --- DRAG & DROP LOGIK --- */
             handleDragStart(e, day) {
                 e.dataTransfer.setData('text/plain', day);
                 setTimeout(() => e.target.classList.add('opacity-50'), 10);
@@ -721,16 +933,11 @@
                 this.renderMenu();
             },
 
-            /* --- PRISBERÄKNING (EGET PRIS ELLER MEDIAN) --- */
             getPriceEstimate(item) {
                 const lower = item.toLowerCase().trim();
-                
-                // 1. Kollar om användaren har angett ett eget pris först
                 if (state.customPrices && state.customPrices[lower] !== undefined && state.customPrices[lower] !== "") {
                     return Number(state.customPrices[lower]);
                 }
-
-                // 2. Annars schablonpriser
                 const priceRules = [
                     { keywords: ['ost', 'västerbottensost', 'parmesan', 'mozzarella'], price: 75 },
                     { keywords: ['köttfärs', 'biff', 'lövbiff', 'högrev', 'älgkött', 'vilt', 'oxfilé'], price: 75 },
@@ -747,13 +954,10 @@
                     { keywords: ['pasta', 'spaghetti', 'makaroner', 'ris', 'nudlar', 'krossade tomater', 'passerade tomater', 'kokosmjölk'], price: 15 },
                     { keywords: ['bröd', 'tortilla', 'hamburgerbröd', 'pitabröd'], price: 30 }
                 ];
-
                 for (const rule of priceRules) {
-                    if (rule.keywords.some(k => lower.includes(k))) {
-                        return rule.price;
-                    }
+                    if (rule.keywords.some(k => lower.includes(k))) return rule.price;
                 }
-                return 25; // Standard snittpris
+                return 25; 
             },
 
             renderMenu() {
@@ -765,8 +969,12 @@
                     const locked = state.lockedDays.has(day);
                     const clash = state.clashes[day];
                     
+                    const imageHTML = (dish && dish.bild) 
+                        ? `<img src="${dish.bild}" alt="Matbild" class="food-image w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0 ml-3">`
+                        : `<div class="food-image w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/60 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-300 ml-3 shadow-sm"><i class="fas fa-utensils text-xl"></i></div>`;
+
                     container.innerHTML += `
-                        <div class="menu-card glass-card p-4 pl-8 rounded-2xl shadow-sm relative ${locked ? 'border-amber-400 bg-amber-50/50' : 'border-emerald-500'} cursor-move"
+                        <div class="menu-card glass-card p-3 pl-8 sm:p-4 sm:pl-8 rounded-2xl shadow-sm relative flex items-center justify-between ${locked ? 'border-amber-400 bg-amber-50/50' : 'border-emerald-500'} cursor-move"
                              draggable="true"
                              ondragstart="window.app.handleDragStart(event, '${day}')"
                              ondragend="window.app.handleDragEnd(event)"
@@ -780,22 +988,27 @@
                             
                             ${clash ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-black shadow-lg animate-pulse z-10 uppercase tracking-tighter">SKOLKROCK: ${clash}</div>` : ''}
                             
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">${day}</span>
-                                <div class="flex gap-2 no-print items-center">
-                                    <button onclick="window.app.openDishSelector('${day}')" class="text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 bg-white shadow-sm border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1 transition-all" title="Välj en annan rätt från banken">
-                                        <i class="fas fa-exchange-alt"></i> Byt ut
-                                    </button>
-                                    <button onclick="window.app.toggleLock('${day}')" class="${locked ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'} p-1 transition-colors" title="Lås dag">
-                                        <i class="fas ${locked ? 'fa-lock' : 'fa-lock-open'}"></i>
-                                    </button>
-                                    <button onclick="window.app.editDish('${dish?.id}')" class="text-slate-300 hover:text-blue-500 p-1 transition-colors" title="Redigera recept">
-                                        <i class="fas fa-pen text-[10px]"></i>
-                                    </button>
+                            <div class="print-text-content pr-2">
+                                <div class="flex justify-between items-center mb-1 sm:mb-2">
+                                    <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">${day}</span>
+                                    <div class="flex gap-2 no-print items-center">
+                                        <button onclick="window.app.openDishSelector('${day}')" class="text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 bg-white shadow-sm border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1 transition-all" title="Välj en annan rätt från banken">
+                                            <i class="fas fa-exchange-alt"></i> Byt ut
+                                        </button>
+                                        <button onclick="window.app.toggleLock('${day}')" class="${locked ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'} p-1 transition-colors" title="Lås dag">
+                                            <i class="fas ${locked ? 'fa-lock' : 'fa-lock-open'}"></i>
+                                        </button>
+                                        <button onclick="window.app.editDish('${dish?.id}')" class="text-slate-300 hover:text-blue-500 p-1 transition-colors" title="Redigera recept">
+                                            <i class="fas fa-pen text-[10px]"></i>
+                                        </button>
+                                    </div>
                                 </div>
+                                <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight">${dish ? dish.namn : '<span class="text-slate-300 italic">Inget valt...</span>'}</h3>
+                                <p class="text-[11px] sm:text-xs text-slate-500 mt-1 truncate print:max-w-none print:whitespace-normal print:line-clamp-2">${dish ? (dish.ingredienser || []).join(', ') : ''}</p>
                             </div>
-                            <h3 class="font-bold text-slate-800 text-lg">${dish ? dish.namn : '<span class="text-slate-300 italic">Inget valt...</span>'}</h3>
-                            <p class="text-xs text-slate-500 mt-1 truncate">${dish ? (dish.ingredienser || []).join(', ') : ''}</p>
+
+                            ${imageHTML}
+                            
                         </div>`;
                 });
                 this.generateShoppingList();
@@ -841,11 +1054,15 @@
                             <div class="grid gap-3">
                                 ${dishes.map(d => `
                                     <div class="dish-item bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center transition-all hover:border-emerald-200">
-                                        <div class="overflow-hidden">
-                                            <h4 class="font-bold text-slate-800 text-sm">${d.namn}</h4>
-                                            <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>
+                                        <div class="flex items-center gap-3 overflow-hidden">
+                                            ${d.bild ? `<img src="${d.bild}" class="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0 border border-slate-100">` : `<div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0 text-slate-300 border border-slate-100"><i class="fas fa-utensils"></i></div>`}
+                                            
+                                            <div class="overflow-hidden">
+                                                <h4 class="font-bold text-slate-800 text-sm truncate">${d.namn}</h4>
+                                                <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>
+                                            </div>
                                         </div>
-                                        <div class="flex gap-4 ml-4 no-print">
+                                        <div class="flex gap-3 ml-4 no-print flex-shrink-0">
                                             <button onclick="window.app.editDish('${d.id}')" class="text-slate-300 hover:text-emerald-500"><i class="fas fa-pen"></i></button>
                                             <button onclick="window.app.deleteDish('${d.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash"></i></button>
                                         </div>
@@ -917,7 +1134,7 @@
                                             <input type="checkbox" class="w-5 h-5 rounded border-amber-300 text-emerald-600 no-print">
                                             <span class="hidden print:inline text-slate-400 mr-2">•</span>
                                             <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>
-                                            <span class="text-[11px] font-semibold ${hasCustomPrice ? 'text-emerald-700 font-bold' : 'text-amber-700/60'} ml-1">
+                                            <span class="text-[11px] font-semibold ${hasCustomPrice ? 'text-emerald-700 font-bold' : 'text-amber-700/60'} ml-1 no-print">
                                                 ~${price} kr${hasCustomPrice ? '✨' : ''}
                                             </span>
                                         </div>
