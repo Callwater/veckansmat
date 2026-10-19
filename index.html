@@ -129,8 +129,11 @@
 
             <div id="shopping-list-card" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
                 <div class="flex justify-between items-center mb-4 border-b border-amber-200 pb-2">
-                    <h3 class="font-bold text-amber-900"><i class="fas fa-shopping-basket mr-2"></i>Inköpslista</h3>
-                    <button onclick="window.app.copyList()" class="bg-amber-200 text-amber-800 px-3 py-1 rounded-lg text-xs font-bold no-print">Kopiera</button>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-bold text-amber-900"><i class="fas fa-shopping-basket mr-2"></i>Inköpslista</h3>
+                        <span id="total-price-tag" class="bg-amber-200/80 text-amber-900 text-xs font-bold px-2.5 py-0.5 rounded-full border border-amber-300"></span>
+                    </div>
+                    <button onclick="window.app.copyList()" class="bg-amber-200 text-amber-800 px-3 py-1 rounded-lg text-xs font-bold no-print hover:bg-amber-300 transition-all">Kopiera</button>
                 </div>
                 <div id="shopping-list-content" class="space-y-4"></div>
             </div>
@@ -189,13 +192,26 @@
                 </div>
                 <div id="custom-categories-list" class="flex flex-wrap gap-2"></div>
             </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <h3 class="font-bold text-slate-800">Egna Varupriser</h3>
+                <p class="text-xs text-slate-400">Varor där du angivit ett eget pris (ersätter schablonpriset):</p>
+                <div id="custom-prices-list" class="space-y-2"></div>
+            </div>
         </section>
 
+        <!-- Redigera Kategori & Pris Modal -->
         <div id="category-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
             <div class="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in duration-200">
-                <h3 class="text-lg font-bold text-slate-800 mb-1">Ändra kategori</h3>
-                <p class="text-xs text-slate-400 mb-6">Sortera <span id="cat-edit-item-name" class="font-bold text-emerald-600"></span>.</p>
-                <select id="cat-edit-select" class="w-full p-4 bg-slate-50 border-none rounded-2xl mb-6 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-emerald-500 transition-all"></select>
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Ändra vara</h3>
+                <p class="text-xs text-slate-400 mb-4">Inställningar för <span id="cat-edit-item-name" class="font-bold text-emerald-600"></span>.</p>
+                
+                <label class="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">Kategori</label>
+                <select id="cat-edit-select" class="w-full p-3 bg-slate-50 border-none rounded-2xl mb-4 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-emerald-500 text-sm transition-all"></select>
+
+                <label class="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">Eget pris (SEK)</label>
+                <input type="number" id="cat-edit-price" class="w-full p-3 bg-slate-50 border-none rounded-2xl mb-6 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-emerald-500 text-sm transition-all" placeholder="T.ex. 45">
+
                 <div class="flex gap-3">
                     <button onclick="document.getElementById('category-modal').classList.add('hidden')" class="flex-1 py-3 text-sm font-bold text-slate-400">Avbryt</button>
                     <button onclick="window.app.saveCategoryChange()" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold">Spara</button>
@@ -232,6 +248,7 @@
             editingId: null,
             itemToEdit: null,
             customCategories: {},
+            customPrices: {},
             availableCategories: [],
             basvaror: new Set(['salt', 'peppar', 'smör', 'olja', 'mjöl', 'socker', 'buljong', 'soja', 'ketchup', 'senap'])
         };
@@ -329,10 +346,36 @@
                     </div>`).join('');
             },
 
+            renderSettingsPrices() {
+                const container = document.getElementById('custom-prices-list');
+                if(!container) return;
+                const entries = Object.entries(state.customPrices || {});
+                if(entries.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-slate-300 italic">Inga egna priser angivna ännu. Klicka på tagg-ikonen <i class="fas fa-tag"></i> i handlingslistan för att sätta pris på en vara.</p>';
+                    return;
+                }
+                container.innerHTML = entries.map(([item, price]) => `
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
+                        <span class="font-semibold text-slate-700 capitalize">${item}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-emerald-600">${price} kr</span>
+                            <button onclick="window.app.removeCustomPrice('${item.replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            async removeCustomPrice(item) {
+                delete state.customPrices[item];
+                await setDoc(doc(db, "globala_inställningar", "priser"), { map: state.customPrices });
+                this.notify("Pris borttaget!");
+            },
+
             openCategoryModal(itemName) {
                 state.itemToEdit = itemName.toLowerCase();
                 const modal = document.getElementById('category-modal');
                 const select = document.getElementById('cat-edit-select');
+                const priceInput = document.getElementById('cat-edit-price');
                 document.getElementById('cat-edit-item-name').innerText = itemName;
                 
                 const defaultCats = ['Frukt & Grönt', 'Mejeri', 'Kött/Fisk', 'Chark', 'Skafferi', 'Fryst', 'Dryck', 'Basvaror', 'Övrigt'];
@@ -340,11 +383,17 @@
                 const currentCat = state.basvaror.has(state.itemToEdit) ? 'Basvaror' : (state.customCategories[state.itemToEdit] || 'Övrigt');
 
                 select.innerHTML = allPossibleCats.sort().map(cat => `<option value="${cat}" ${cat === currentCat ? 'selected' : ''}>${cat}</option>`).join('');
+                
+                const currentCustomPrice = state.customPrices[state.itemToEdit];
+                priceInput.value = currentCustomPrice !== undefined ? currentCustomPrice : '';
+                priceInput.placeholder = `Snittpris: ~${this.getPriceEstimate(itemName)} kr`;
+
                 modal.classList.remove('hidden');
             },
 
             async saveCategoryChange() {
                 const newCat = document.getElementById('cat-edit-select').value;
+                const priceVal = document.getElementById('cat-edit-price').value.trim();
                 const item = state.itemToEdit;
                 try {
                     if(newCat === 'Basvaror') {
@@ -358,6 +407,14 @@
                             await setDoc(doc(db, "globala_inställningar", "basvaror"), { items: Array.from(state.basvaror) });
                         }
                     }
+
+                    if (priceVal !== "" && !isNaN(priceVal)) {
+                        state.customPrices[item] = Number(priceVal);
+                    } else {
+                        delete state.customPrices[item];
+                    }
+                    await setDoc(doc(db, "globala_inställningar", "priser"), { map: state.customPrices });
+
                     this.notify("Sparat!");
                     document.getElementById('category-modal').classList.add('hidden');
                 } catch(e) { this.notify("Fel vid sparning."); }
@@ -634,7 +691,7 @@
             },
             
             handleDragOver(e) {
-                e.preventDefault(); // Krävs för att tillåta drop
+                e.preventDefault();
                 e.currentTarget.classList.add('border-emerald-400', 'bg-emerald-50/50');
             },
             
@@ -648,23 +705,55 @@
                 const sourceDay = e.dataTransfer.getData('text/plain');
                 
                 if (sourceDay && sourceDay !== targetDay) {
-                    // Byt plats på maträtterna i minnet
                     const tempDish = state.currentMenu[sourceDay];
                     state.currentMenu[sourceDay] = state.currentMenu[targetDay];
                     state.currentMenu[targetDay] = tempDish;
                     
-                    // Säkerställ att eventuella hänglås följer med maträtten till den nya dagen
                     const sourceWasLocked = state.lockedDays.has(sourceDay);
                     const targetWasLocked = state.lockedDays.has(targetDay);
                     
                     if(targetWasLocked) state.lockedDays.add(sourceDay); else state.lockedDays.delete(sourceDay);
                     if(sourceWasLocked) state.lockedDays.add(targetDay); else state.lockedDays.delete(targetDay);
                     
-                    // Spara till databasen
                     await setDoc(doc(db, PATHS.menu), state.currentMenu);
                     this.notify(`Bytte plats på ${sourceDay} och ${targetDay}!`);
                 }
                 this.renderMenu();
+            },
+
+            /* --- PRISBERÄKNING (EGET PRIS ELLER MEDIAN) --- */
+            getPriceEstimate(item) {
+                const lower = item.toLowerCase().trim();
+                
+                // 1. Kollar om användaren har angett ett eget pris först
+                if (state.customPrices && state.customPrices[lower] !== undefined && state.customPrices[lower] !== "") {
+                    return Number(state.customPrices[lower]);
+                }
+
+                // 2. Annars schablonpriser
+                const priceRules = [
+                    { keywords: ['ost', 'västerbottensost', 'parmesan', 'mozzarella'], price: 75 },
+                    { keywords: ['köttfärs', 'biff', 'lövbiff', 'högrev', 'älgkött', 'vilt', 'oxfilé'], price: 75 },
+                    { keywords: ['kyckling', 'kycklingfilé', 'kycklinglår'], price: 65 },
+                    { keywords: ['lax', 'torsk', 'fiskfilé', 'räkor', 'sej'], price: 60 },
+                    { keywords: ['falukorv', 'korv', 'bacon', 'chark', 'skinka', 'salami'], price: 35 },
+                    { keywords: ['smör', 'bregott'], price: 50 },
+                    { keywords: ['ägg'], price: 35 },
+                    { keywords: ['grädde', 'creme fraiche', 'fraiche', 'yoghurt', 'kvarg', 'ostsås'], price: 20 },
+                    { keywords: ['mjölk', 'havredryck'], price: 16 },
+                    { keywords: ['paprika', 'sallad', 'avokado', 'spenat'], price: 20 },
+                    { keywords: ['tomat', 'gurka', 'broccoli', 'blomkål', 'zucchini', 'majs'], price: 18 },
+                    { keywords: ['lök', 'morot', 'potatis', 'vitlök', 'citron', 'palsternacka'], price: 12 },
+                    { keywords: ['pasta', 'spaghetti', 'makaroner', 'ris', 'nudlar', 'krossade tomater', 'passerade tomater', 'kokosmjölk'], price: 15 },
+                    { keywords: ['bröd', 'tortilla', 'hamburgerbröd', 'pitabröd'], price: 30 }
+                ];
+
+                for (const rule of priceRules) {
+                    if (rule.keywords.some(k => lower.includes(k))) {
+                        return rule.price;
+                    }
+                }
+                return 25; // Standard snittpris
             },
 
             renderMenu() {
@@ -676,7 +765,6 @@
                     const locked = state.lockedDays.has(day);
                     const clash = state.clashes[day];
                     
-                    // Har lagt till drag-and-drop attribut på div:en samt en pl-8 (padding-left)
                     container.innerHTML += `
                         <div class="menu-card glass-card p-4 pl-8 rounded-2xl shadow-sm relative ${locked ? 'border-amber-400 bg-amber-50/50' : 'border-emerald-500'} cursor-move"
                              draggable="true"
@@ -686,7 +774,6 @@
                              ondragleave="window.app.handleDragLeave(event)"
                              ondrop="window.app.handleDrop(event, '${day}')">
                              
-                            <!-- Grepp-ikon för Drag & Drop -->
                             <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-50 hover:opacity-100 no-print cursor-move">
                                 <i class="fas fa-grip-vertical"></i>
                             </div>
@@ -773,6 +860,8 @@
             generateShoppingList() {
                 const container = document.getElementById('shopping-list-content');
                 const card = document.getElementById('shopping-list-card');
+                const totalTag = document.getElementById('total-price-tag');
+                
                 let all = [];
                 Object.values(state.currentMenu).forEach(d => { if(d?.ingredienser) all = [...all, ...d.ingredienser]; });
                 if(all.length === 0) { if(card) card.classList.add('hidden'); return; }
@@ -788,12 +877,17 @@
                     'Kött/Fisk': ['lax','färs','kyckling','bacon','skinka','biff','torsk'] 
                 };
 
+                let totalEstimatedCost = 0;
+
                 const uniqueIngs = [...new Set(all.map(i => i.toLowerCase().trim()))];
                 uniqueIngs.forEach(ing => {
                     let userCat = state.customCategories[ing];
                     if (userCat === 'Grönt' || userCat === 'Frukt och Grönt') userCat = 'Frukt & Grönt';
 
                     if(state.basvaror.has(ing)) { cats['Basvaror'].push(ing); return; }
+                    
+                    totalEstimatedCost += this.getPriceEstimate(ing);
+
                     if(userCat && cats[userCat]) { cats[userCat].push(ing); return; }
 
                     let foundByKeyword = false;
@@ -803,6 +897,10 @@
                     if(!foundByKeyword) cats['Övrigt'].push(ing);
                 });
 
+                if(totalTag) {
+                    totalTag.innerText = `Ca totalt: ${totalEstimatedCost} kr`;
+                }
+
                 if(container) container.innerHTML = Object.entries(cats).map(([c, items]) => {
                     if(items.length === 0) return '';
                     const isBasvara = c === 'Basvaror';
@@ -810,17 +908,24 @@
                         <div class="${isBasvara ? 'mt-6 pt-4 border-t border-amber-200 opacity-60' : 'mt-2'}">
                             <h4 class="text-[10px] font-black uppercase tracking-tighter mb-2 text-amber-800/50">${c}</h4>
                             <ul class="space-y-2">
-                                ${items.map(i => `
-                                    <li class="flex justify-between group py-1 border-b border-slate-100 print:border-slate-200">
+                                ${items.map(i => {
+                                    const price = this.getPriceEstimate(i);
+                                    const hasCustomPrice = state.customPrices && state.customPrices[i] !== undefined;
+                                    return `
+                                    <li class="flex justify-between items-center group py-1 border-b border-slate-100 print:border-slate-200">
                                         <div class="flex items-center gap-3">
                                             <input type="checkbox" class="w-5 h-5 rounded border-amber-300 text-emerald-600 no-print">
                                             <span class="hidden print:inline text-slate-400 mr-2">•</span>
                                             <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>
+                                            <span class="text-[11px] font-semibold ${hasCustomPrice ? 'text-emerald-700 font-bold' : 'text-amber-700/60'} ml-1">
+                                                ~${price} kr${hasCustomPrice ? '✨' : ''}
+                                            </span>
                                         </div>
                                         <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" class="text-amber-400 hover:text-emerald-600 p-1 no-print">
                                             <i class="fas fa-tag text-[10px]"></i>
                                         </button>
-                                    </li>`).join('')}
+                                    </li>`;
+                                }).join('')}
                             </ul>
                         </div>`;
                 }).join('');
@@ -845,7 +950,7 @@
             }
         };
 
-        // --- STARTA UP ---
+        // --- STARTA UP & LYSSNA PÅ FIREBASE ---
         document.getElementById('room-id-val').innerText = state.room;
         document.getElementById('room-label').innerText = `| ${state.room}`;
 
@@ -858,6 +963,7 @@
 
         onSnapshot(doc(db, PATHS.menu), snap => { if(snap.exists()) { state.currentMenu = snap.data(); window.app.renderMenu(); } });
         onSnapshot(doc(db, "globala_inställningar", "kategorier"), snap => { if(snap.exists()) { state.customCategories = snap.data()?.map || {}; window.app.renderMenu(); } });
+        onSnapshot(doc(db, "globala_inställningar", "priser"), snap => { if(snap.exists()) { state.customPrices = snap.data()?.map || {}; window.app.renderMenu(); window.app.renderSettingsPrices(); } });
         onSnapshot(doc(db, "globala_inställningar", "basvaror"), snap => { if(snap.exists() && snap.data().items) { state.basvaror = new Set(snap.data().items.map(i => i.toLowerCase())); window.app.renderMenu(); } });
         onSnapshot(doc(db, "globala_inställningar", "inställningar"), snap => { if(snap.exists()) { state.availableCategories = snap.data().categories || []; window.app.renderSettingsCategories(); window.app.renderMenu(); } });
 
