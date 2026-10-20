@@ -44,7 +44,6 @@
                 size: A4 portrait;
             }
             
-            /* Göm webb-UI */
             .no-print, nav, header, #action-bar, button, .fas.fa-tag, input[type="checkbox"], #temp-selector, #category-modal { 
                 display: none !important; 
             }
@@ -74,7 +73,6 @@
                 position: relative;
             }
 
-            /* Dynamisk rubrik som hämtar veckonummer via kod */
             #view-menu::before {
                 content: attr(data-title);
                 display: block;
@@ -117,10 +115,9 @@
             .menu-card:nth-child(6) { background-color: #f9a8d4 !important; } /* Lör - Rosa */
             .menu-card:nth-child(7) { background-color: #ef4444 !important; } /* Sön - Röd */
 
-            /* Dag-namnet (Betydligt större nu) */
-            .menu-card span.text-\\[10px\\] {
+            .menu-card span.text-[10px] {
                 font-family: 'Caveat', cursive;
-                font-size: 36px !important; /* Ändrad från 26 till 36 */
+                font-size: 36px !important;
                 line-height: 0.9 !important;
                 color: #000000 !important; 
                 font-weight: 700 !important;
@@ -130,7 +127,6 @@
                 display: inline-block;
             }
 
-            /* Hjärtat till vänster */
             .menu-card::before {
                 content: "♡";
                 position: absolute;
@@ -141,11 +137,10 @@
                 color: #000000 !important;
             }
 
-            /* Tvingar texten att stanna inom ramarna och radbryta */
             .print-text-content {
                 padding-left: 20px !important;
-                flex: 1 1 0% !important; /* Tar upp all tillgänglig plats */
-                min-width: 0 !important; /* Tvingar flexbox att krympa om texten är för lång */
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
                 padding-right: 15px !important;
             }
             
@@ -154,7 +149,7 @@
                 margin: 0 !important;
                 color: #111111 !important;
                 font-weight: 700 !important;
-                white-space: normal !important; /* Tillåter radbrytning */
+                white-space: normal !important;
                 line-height: 1.2 !important;
             }
             
@@ -163,15 +158,14 @@
                 color: #222222 !important;
                 margin-top: 4px !important;
                 font-weight: 500 !important;
-                white-space: normal !important; /* Radbryt ingredienser */
+                white-space: normal !important;
                 display: -webkit-box !important;
-                -webkit-line-clamp: 2 !important; /* Max 2 rader, sen lägger den till ... */
+                -webkit-line-clamp: 2 !important;
                 -webkit-box-orient: vertical !important;
                 overflow: hidden !important;
                 line-height: 1.3 !important;
             }
 
-            /* Skolkrock */
             .menu-card .absolute.-top-3 {
                 top: 5px !important;
                 right: 15px !important;
@@ -180,16 +174,15 @@
                 font-family: sans-serif;
             }
 
-            /* Låser bilden exakt så att alla hamnar rakt under varandra */
             .food-image {
-                flex: 0 0 75px !important; /* Tillåter varken krympning eller förstoring */
+                flex: 0 0 75px !important;
                 width: 75px !important;
                 height: 75px !important;
                 border-radius: 50% !important;
                 object-fit: cover !important;
                 border: 3px solid white !important;
                 box-shadow: 0 4px 6px rgba(0,0,0,0.15) !important;
-                margin-left: auto !important; /* Knuffar bilden maximalt åt höger */
+                margin-left: auto !important; /* Denna håller bilden till höger i utskrift */
                 background-color: white !important;
             }
 
@@ -328,6 +321,7 @@
             </div>
         </section>
 
+        <!-- SKAPA / REDIGERA RECEPT -->
         <section id="view-add" class="hidden animate-in slide-in-from-right duration-300">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <div class="flex justify-between items-center mb-6">
@@ -336,7 +330,19 @@
                 </div>
                 <div class="space-y-4">
                     <input type="text" id="new-name" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Rättens namn...">
-                    <input type="url" id="new-image" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Länk till bild (frivilligt)...">
+                    
+                    <!-- BILDUppladdning MED FÖRHANDSTITT -->
+                    <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div id="image-preview-container" class="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 text-slate-400 border border-slate-300 shadow-sm">
+                            <i class="fas fa-image text-xl"></i>
+                        </div>
+                        <div class="flex-grow">
+                            <label class="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">Välj en bild (Frivillig)</label>
+                            <input type="file" id="new-image-file" accept="image/*" onchange="window.app.handleImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all cursor-pointer">
+                            <input type="hidden" id="hidden-image-base64">
+                        </div>
+                    </div>
+
                     <select id="new-category" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none transition-all">
                         <option value="kött">🥩 Kött</option>
                         <option value="kyckling">🍗 Kyckling</option>
@@ -417,7 +423,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-        // --- RÄKNA UT VECKONUMMER ---
         function getWeekNumber(d) {
             d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
@@ -425,7 +430,6 @@
             return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
         }
 
-        // LÄGG IN VECKONUMMER I UTSKRIFTSRUBRIKEN
         const nuvarandeVecka = getWeekNumber(new Date());
         document.getElementById('view-menu').setAttribute('data-title', `Veckans matlista v.${nuvarandeVecka}`);
 
@@ -469,6 +473,49 @@
                 });
                 document.getElementById(`view-${tab}`).classList.remove('hidden');
                 document.getElementById(`tab-${tab}`).classList.add('text-emerald-600', 'border-emerald-600', 'bg-emerald-50');
+            },
+
+            // NY FUNKTION FÖR BILDUPPLADDNING & KOMPRIMERING
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        // 300x300 pixlar är en extremt bra storlek för webben/utskrifter här, sparar enormt mycket plats!
+                        const MAX_SIZE = 300; 
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_SIZE) {
+                                height *= MAX_SIZE / width;
+                                width = MAX_SIZE;
+                            }
+                        } else {
+                            if (height > MAX_SIZE) {
+                                width *= MAX_SIZE / height;
+                                height = MAX_SIZE;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Komprimera bilden till en snabb jpeg (0.7 = 70% kvalitet vilket ser grymt ut men tar 0 plats)
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                        
+                        document.getElementById('hidden-image-base64').value = compressedBase64;
+                        document.getElementById('image-preview-container').innerHTML = `<img src="${compressedBase64}" class="w-full h-full object-cover">`;
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
             },
 
             toggleLock(day) {
@@ -624,7 +671,7 @@
 
             async saveDish() {
                 const name = document.getElementById('new-name').value.trim();
-                const imgUrl = document.getElementById('new-image').value.trim();
+                const imgBase64 = document.getElementById('hidden-image-base64').value; // Hämtar komprimerad bild
                 const cat = document.getElementById('new-category').value;
                 const ingStr = document.getElementById('new-ingredients').value.trim();
                 if(!name || !ingStr) return this.notify("Fyll i namn och ingredienser.");
@@ -633,7 +680,7 @@
                     namn: name, 
                     kategori: cat, 
                     ingredienser: ingStr.split(',').map(i => i.trim()).filter(i => i),
-                    bild: imgUrl 
+                    bild: imgBase64 // Sparar strängen i databasen precis som vi ska!
                 };
                 
                 try {
@@ -641,7 +688,7 @@
                     else await addDoc(collection(db, PATHS.dishes), dishData);
                     this.notify("Sparat!");
                     this.resetForm();
-                } catch(e) { console.error(e); }
+                } catch(e) { console.error(e); this.notify("Kunde inte spara."); }
             },
 
             async deleteDish(id) {
@@ -656,9 +703,17 @@
                 if(!dish) return;
                 state.editingId = id;
                 document.getElementById('new-name').value = dish.namn;
-                document.getElementById('new-image').value = dish.bild || '';
+                document.getElementById('hidden-image-base64').value = dish.bild || '';
                 document.getElementById('new-category').value = dish.kategori || 'övrigt';
                 document.getElementById('new-ingredients').value = (dish.ingredienser || []).join(', ');
+                document.getElementById('new-image-file').value = ''; // Nollställ filväljaren
+                
+                if (dish.bild) {
+                    document.getElementById('image-preview-container').innerHTML = `<img src="${dish.bild}" class="w-full h-full object-cover">`;
+                } else {
+                    document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;
+                }
+
                 document.getElementById('form-title').innerText = "Redigera Recept";
                 this.showTab('add');
             },
@@ -666,8 +721,10 @@
             resetForm() {
                 state.editingId = null;
                 document.getElementById('new-name').value = '';
-                document.getElementById('new-image').value = '';
+                document.getElementById('hidden-image-base64').value = '';
+                document.getElementById('new-image-file').value = '';
                 document.getElementById('new-ingredients').value = '';
+                document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;
                 document.getElementById('form-title').innerText = "Skapa Recept";
             },
 
@@ -738,7 +795,7 @@
                         const currentDishWords = getCoreWords(d.namn);
                         const isTooSimilar = currentDishWords.some(word => {
                             return Array.from(usedKeywords).some(used => {
-                                return word.includes(used) || used.includes(word) || (word.substring(0,4) === used.substring(0,4));
+                                return word.includes(used) || used.includes(used) || (word.substring(0,4) === used.substring(0,4));
                             });
                         });
 
@@ -1135,7 +1192,7 @@
                                             <span class="hidden print:inline text-slate-400 mr-2">•</span>
                                             <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>
                                             <span class="text-[11px] font-semibold ${hasCustomPrice ? 'text-emerald-700 font-bold' : 'text-amber-700/60'} ml-1 no-print">
-                                                ~${price} kr${hasCustomPrice ? '✨' : ''}
+                                                ~${price} kr ${hasCustomPrice ? '✨' : ''}
                                             </span>
                                         </div>
                                         <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" class="text-amber-400 hover:text-emerald-600 p-1 no-print">
