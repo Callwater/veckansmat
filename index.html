@@ -168,7 +168,7 @@
                 color: #222222 !important;
                 margin: 3px 0 0 0 !important;
                 font-weight: 500 !important;
-                white-space: white-space: normal !important;
+                white-space: normal !important;
                 overflow: visible !important; /* Visar även text på nästa rad */
                 line-height: 1.2 !important;
             }
@@ -441,13 +441,15 @@
             d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
             const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-            return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);        }
+            return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);        
+        }
 
         const nuvarandeVecka = getWeekNumber(new Date());
         
         const printContainer = document.getElementById('print-title-container');
         if(printContainer) {
-            printContainer.innerHTML = `<h1 class="print-main-title">Veckans matlista v.${nuvarandeVecka}</h1>`;        }
+            printContainer.innerHTML = `<h1 class="print-main-title">Veckans matlista v.${nuvarandeVecka}</h1>`;        
+        }
 
         const firebaseConfig = {
             apiKey: "AIzaSyA4tVwDuLbDIRTt6O9gnghpJRBOXjD6fI0",
@@ -477,7 +479,8 @@
 
         const PATHS = {
             dishes: `rum/${state.room}/recept`,
-            menu: `rum/${state.room}/inställningar/aktuell_meny`        };
+            menu: `rum/${state.room}/inställningar/aktuell_meny`        
+        };
 
         window.app = {
             showTab(tab) {
@@ -598,7 +601,8 @@
                 container.innerHTML = (state.availableCategories || []).map(cat => `
                     <div class="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
                         ${cat} <button onclick="window.app.removeCategory('${cat}')" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
-                    </div>`).join('');            },
+                    </div>`).join('');            
+            },
 
             renderSettingsPrices() {
                 const container = document.getElementById('custom-prices-list');
@@ -710,7 +714,8 @@
                 if (dish.bild) {
                     document.getElementById('image-preview-container').innerHTML = `<img src="${dish.bild}" class="w-full h-full object-cover">`;
                 } else {
-                    document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;                }
+                    document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;                
+                }
 
                 document.getElementById('form-title').innerText = "Redigera Recept";
                 this.showTab('add');
@@ -722,7 +727,8 @@
                 document.getElementById('hidden-image-base64').value = '';
                 document.getElementById('new-image-file').value = '';
                 document.getElementById('new-ingredients').value = '';
-                document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;                document.getElementById('form-title').innerText = "Skapa Recept";
+                document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;                
+                document.getElementById('form-title').innerText = "Skapa Recept";
             },
 
             async importJSON(input) {
@@ -765,6 +771,7 @@
                 const newMenu = {};
                 let usedIds = new Set();
                 let usedKeywords = new Set();
+                let hasFish = false; // NYHET: Spårar om vi redan har en fiskrätt
 
                 const getCoreWords = (name) => {
                     return name.toLowerCase()
@@ -779,6 +786,9 @@
                         newMenu[day] = dish;
                         usedIds.add(dish.id);
                         getCoreWords(dish.namn).forEach(w => usedKeywords.add(w));
+                        
+                        // NYHET: Kolla om den låsta rätten var en fisk
+                        if (dish.kategori === 'fisk') hasFish = true;
                     } else {
                         newMenu[day] = null;
                     }
@@ -789,10 +799,12 @@
                         if (usedIds.has(d.id)) return false;
                         if (cat && d.kategori !== cat) return false;
                         
+                        // NYHET: Om vi redan har en fiskrätt, blockera all annan fisk från allmänna sökningar
+                        if (cat !== 'fisk' && d.kategori === 'fisk' && hasFish) return false;
+
                         const currentDishWords = getCoreWords(d.namn);
                         const isTooSimilar = currentDishWords.some(word => {
                             return Array.from(usedKeywords).some(used => {
-                                // FELRÄTTNING: used.includes(word) ser till att rätterna jämförs korrekt
                                 return word.includes(used) || used.includes(word) || (word.substring(0,4) === used.substring(0,4));
                             });
                         });
@@ -801,10 +813,8 @@
                     }).sort(() => 0.5 - Math.random());
                 };
 
-                const hasLockedFish = Array.from(usedIds).some(id => 
-                    state.dishes.find(d => d.id === id)?.kategori === 'fisk'
-                );
-                if (!hasLockedFish) {
+                // Säkerställ att vi får EXAKT 1 fisk per vecka (om det inte redan fanns en låst)
+                if (!hasFish) {
                     let pool = getSmartPool('fisk');
                     if (pool.length === 0) pool = state.dishes.filter(d => d.kategori === 'fisk' && !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
                     const day = vardagar.filter(d => !newMenu[d])[0];
@@ -812,10 +822,10 @@
                         newMenu[day] = pool[0];
                         usedIds.add(pool[0].id);
                         getCoreWords(pool[0].namn).forEach(w => usedKeywords.add(w));
+                        hasFish = true; // Sätt till sant, nu stängs dörren för fler fiskrätter!
                     }
                 }
 
-                // Fyll Helgdagarna ordentligt (nu får lördagen en egen rätt!)
                 helgDays.forEach(day => {
                     if (!newMenu[day]) {
                         let pool = getSmartPool('helg');
@@ -823,7 +833,9 @@
                         
                         let pick = pool[0];
                         if (!pick) {
-                            const fallbackPool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
+                            // Fallback som respekterar max-1-fisk-regeln
+                            let fallbackPool = state.dishes.filter(d => !usedIds.has(d.id) && (!hasFish || d.kategori !== 'fisk')).sort(() => 0.5 - Math.random());
+                            if (fallbackPool.length === 0) fallbackPool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
                             pick = fallbackPool[0];
                         }
                         
@@ -831,6 +843,7 @@
                             newMenu[day] = pick;
                             usedIds.add(pick.id);
                             getCoreWords(pick.namn).forEach(w => usedKeywords.add(w));
+                            if (pick.kategori === 'fisk') hasFish = true; // Om den mot förmodan var en fisk
                         }
                     }
                 });
@@ -838,7 +851,13 @@
                 days.forEach((day, i) => {
                     if (newMenu[day]) return;
                     let pool = getSmartPool();
-                    if (pool.length === 0) pool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
+                    
+                    if (pool.length === 0) {
+                        // Fallback som respekterar max-1-fisk-regeln
+                        let fallbackPool = state.dishes.filter(d => !usedIds.has(d.id) && (!hasFish || d.kategori !== 'fisk')).sort(() => 0.5 - Math.random());
+                        if (fallbackPool.length === 0) fallbackPool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
+                        pool = fallbackPool;
+                    }
 
                     const prevCat = i > 0 ? newMenu[days[i-1]]?.kategori : null;
                     if (pool.length > 1 && prevCat && pool[0].kategori === prevCat) {
@@ -851,6 +870,7 @@
                         newMenu[day] = pick;
                         usedIds.add(pick.id);
                         getCoreWords(pick.namn).forEach(w => usedKeywords.add(w));
+                        if (pick.kategori === 'fisk') hasFish = true;
                     }
                 });
 
@@ -1068,7 +1088,8 @@
                             
                             ${imageHTML}
                             
-                        </div>`;                });
+                        </div>`;                
+                });
                 this.generateShoppingList();
             },
 
@@ -1182,7 +1203,8 @@
                                             <span class="hidden print:inline text-slate-400 mr-2">•</span>                                            <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>                                            <span class="text-[11px] font-semibold ${hasCustomPrice ? 'text-emerald-700 font-bold' : 'text-amber-700/60'} ml-1 no-print">
                                                 ~${price} kr ${hasCustomPrice ? '✨' : ''}
                                             </span>                                        </div>                                        <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" class="text-amber-400 hover:text-emerald-600 p-1 no-print">                                            <i class="fas fa-tag text-[10px]"></i>                                        </button>                                    </li>`;                                }).join('')}
-                            </ul>                        </div>`;                }).join('');
+                            </ul>                        </div>`;                
+                }).join('');
             },
 
             notify(msg) {
