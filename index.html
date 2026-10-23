@@ -169,7 +169,6 @@
                 margin: 3px 0 0 0 !important;
                 font-weight: 500 !important;
                 white-space: white-space: normal !important;
-                /*overflow: hidden !important; */
                 overflow: visible !important; /* Visar även text på nästa rad */
                 line-height: 1.2 !important;
             }
@@ -442,15 +441,13 @@
             d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
             const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-            return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
-        }
+            return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);        }
 
         const nuvarandeVecka = getWeekNumber(new Date());
         
         const printContainer = document.getElementById('print-title-container');
         if(printContainer) {
-            printContainer.innerHTML = `<h1 class="print-main-title">Veckans matlista v.${nuvarandeVecka}</h1>`;
-        }
+            printContainer.innerHTML = `<h1 class="print-main-title">Veckans matlista v.${nuvarandeVecka}</h1>`;        }
 
         const firebaseConfig = {
             apiKey: "AIzaSyA4tVwDuLbDIRTt6O9gnghpJRBOXjD6fI0",
@@ -480,8 +477,7 @@
 
         const PATHS = {
             dishes: `rum/${state.room}/recept`,
-            menu: `rum/${state.room}/inställningar/aktuell_meny`
-        };
+            menu: `rum/${state.room}/inställningar/aktuell_meny`        };
 
         window.app = {
             showTab(tab) {
@@ -548,10 +544,7 @@
                 const html = dishList.map(d => `
                     <button onclick="window.app.selectDish('${day}', '${d.id}')" 
                             class="w-full text-left p-4 border-b border-slate-100 hover:bg-emerald-50 transition-colors flex justify-between items-center group">
-                        <span class="font-bold text-sm text-slate-700 group-hover:text-emerald-700">${d.namn}</span>
-                        <span class="text-[10px] uppercase font-black text-slate-400 bg-slate-100 px-2 py-1 rounded-md">${d.kategori || 'övrigt'}</span>
-                    </button>
-                `).join('');
+                        <span class="font-bold text-sm text-slate-700 group-hover:text-emerald-700">${d.namn}</span>                        <span class="text-[10px] uppercase font-black text-slate-400 bg-slate-100 px-2 py-1 rounded-md">${d.kategori || 'övrigt'}</span>                    </button>                `).join('');
                 
                 const modal = document.createElement('div');
                 modal.id = 'temp-selector';
@@ -561,10 +554,7 @@
                         <div class="p-4 border-b flex justify-between items-center bg-slate-50">
                             <h3 class="font-bold text-slate-800"><i class="fas fa-exchange-alt mr-2 text-emerald-500"></i> Byt ut ${day}</h3>
                             <button onclick="this.closest('#temp-selector').remove()" class="text-slate-400 hover:text-red-500 p-2"><i class="fas fa-times text-lg"></i></button>
-                        </div>
-                        <div class="overflow-y-auto flex-grow bg-white">${html}</div>
-                    </div>
-                `;
+                        </div>                        <div class="overflow-y-auto flex-grow bg-white">${html}</div>                    </div>                `;
                 document.body.appendChild(modal);
             },
 
@@ -608,8 +598,7 @@
                 container.innerHTML = (state.availableCategories || []).map(cat => `
                     <div class="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
                         ${cat} <button onclick="window.app.removeCategory('${cat}')" class="text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>
-                    </div>`).join('');
-            },
+                    </div>`).join('');            },
 
             renderSettingsPrices() {
                 const container = document.getElementById('custom-prices-list');
@@ -621,13 +610,8 @@
                 }
                 container.innerHTML = entries.map(([item, price]) => `
                     <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
-                        <span class="font-semibold text-slate-700 capitalize">${item}</span>
-                        <div class="flex items-center gap-3">
-                            <span class="font-bold text-emerald-600">${price} kr</span>
-                            <button onclick="window.app.removeCustomPrice('${item.replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                `).join('');
+                        <span class="font-semibold text-slate-700 capitalize">${item}</span>                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-emerald-600">${price} kr</span>                            <button onclick="window.app.removeCustomPrice('${item.replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash"></i></button>                        </div>                    </div>                `).join('');
             },
 
             async removeCustomPrice(item) {
@@ -647,8 +631,7 @@
                 const allPossibleCats = [...new Set([...defaultCats, ...(state.availableCategories || [])])];
                 const currentCat = state.basvaror.has(state.itemToEdit) ? 'Basvaror' : (state.customCategories[state.itemToEdit] || 'Övrigt');
 
-                select.innerHTML = allPossibleCats.sort().map(cat => `<option value="${cat}" ${cat === currentCat ? 'selected' : ''}>${cat}</option>`).join('');
-                
+                select.innerHTML = allPossibleCats.sort().map(cat => `<option value="${cat}" ${cat === currentCat ? 'selected' : ''}>${cat}</option>`).join('');                
                 const currentCustomPrice = state.customPrices[state.itemToEdit];
                 priceInput.value = currentCustomPrice !== undefined ? currentCustomPrice : '';
                 priceInput.placeholder = `Snittpris: ~${this.getPriceEstimate(itemName)} kr`;
@@ -727,8 +710,7 @@
                 if (dish.bild) {
                     document.getElementById('image-preview-container').innerHTML = `<img src="${dish.bild}" class="w-full h-full object-cover">`;
                 } else {
-                    document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;
-                }
+                    document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;                }
 
                 document.getElementById('form-title').innerText = "Redigera Recept";
                 this.showTab('add');
@@ -740,8 +722,7 @@
                 document.getElementById('hidden-image-base64').value = '';
                 document.getElementById('new-image-file').value = '';
                 document.getElementById('new-ingredients').value = '';
-                document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;
-                document.getElementById('form-title').innerText = "Skapa Recept";
+                document.getElementById('image-preview-container').innerHTML = `<i class="fas fa-image text-xl text-slate-400"></i>`;                document.getElementById('form-title').innerText = "Skapa Recept";
             },
 
             async importJSON(input) {
@@ -811,7 +792,8 @@
                         const currentDishWords = getCoreWords(d.namn);
                         const isTooSimilar = currentDishWords.some(word => {
                             return Array.from(usedKeywords).some(used => {
-                                return word.includes(used) || used.includes(used) || (word.substring(0,4) === used.substring(0,4));
+                                // FELRÄTTNING: used.includes(word) ser till att rätterna jämförs korrekt
+                                return word.includes(used) || used.includes(word) || (word.substring(0,4) === used.substring(0,4));
                             });
                         });
 
@@ -824,7 +806,7 @@
                 );
                 if (!hasLockedFish) {
                     let pool = getSmartPool('fisk');
-                    if (pool.length === 0) pool = state.dishes.filter(d => d.kategori === 'fisk' && !usedIds.has(d.id));
+                    if (pool.length === 0) pool = state.dishes.filter(d => d.kategori === 'fisk' && !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
                     const day = vardagar.filter(d => !newMenu[d])[0];
                     if (pool[0] && day) {
                         newMenu[day] = pool[0];
@@ -833,11 +815,18 @@
                     }
                 }
 
+                // Fyll Helgdagarna ordentligt (nu får lördagen en egen rätt!)
                 helgDays.forEach(day => {
                     if (!newMenu[day]) {
                         let pool = getSmartPool('helg');
                         if (pool.length === 0) pool = getSmartPool();
-                        const pick = pool[0] || state.dishes.filter(d => !usedIds.has(d.id))[0];
+                        
+                        let pick = pool[0];
+                        if (!pick) {
+                            const fallbackPool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
+                            pick = fallbackPool[0];
+                        }
+                        
                         if (pick) {
                             newMenu[day] = pick;
                             usedIds.add(pick.id);
@@ -851,8 +840,8 @@
                     let pool = getSmartPool();
                     if (pool.length === 0) pool = state.dishes.filter(d => !usedIds.has(d.id)).sort(() => 0.5 - Math.random());
 
-                    const prevCat = newMenu[days[i-1]]?.kategori;
-                    if (pool.length > 1 && pool[0].kategori === prevCat) {
+                    const prevCat = i > 0 ? newMenu[days[i-1]]?.kategori : null;
+                    if (pool.length > 1 && prevCat && pool[0].kategori === prevCat) {
                         const item = pool.shift();
                         pool.push(item);
                     }
@@ -889,9 +878,7 @@
                         weekDates[name] = d.toISOString().split('T')[0];
                     });
 
-                    // 👇 BYT UT DENNA LÄNK MOT DIN EGNA CLOUDFLARE WORKER 👇
                     const proxyUrl = `https://skolmat-proxy.br250power.workers.dev/?from=${weekDates['Måndag']}&to=${weekDates['Fredag']}`;
-
                     const res = await fetch(proxyUrl);
                     if (!res.ok) throw new Error("Proxyn svarade med felkod");
                     
@@ -1061,34 +1048,27 @@
                              ondrop="window.app.handleDrop(event, '${day}')">
                              
                             <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-50 hover:opacity-100 no-print cursor-move">
-                                <i class="fas fa-grip-vertical"></i>
-                            </div>
+                                <i class="fas fa-grip-vertical"></i>                            </div>                            
+                            ${clash ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-black shadow-lg animate-pulse z-10 uppercase tracking-tighter">SKOLKROCK: ${clash}</div>` : ''}                            
                             
-                            ${clash ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-black shadow-lg animate-pulse z-10 uppercase tracking-tighter">SKOLKROCK: ${clash}</div>` : ''}
-                            
-                            <div class="print-text-content pr-2">
+                            <!-- FELRÄTTNING: flex-1 och min-w-0 förhindrar att texten trycker ut bilden -->
+                            <div class="print-text-content pr-2 flex-1 min-w-0">
                                 <div class="flex justify-between items-center mb-1 sm:mb-2">
-                                    <span class="print-day-label text-[10px] font-black uppercase text-slate-400 tracking-widest">${day}</span>
-                                    <div class="flex gap-2 no-print items-center">
+                                    <span class="print-day-label text-[10px] font-black uppercase text-slate-400 tracking-widest">${day}</span>                                    <div class="flex gap-2 no-print items-center">
                                         <button onclick="window.app.openDishSelector('${day}')" class="text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 bg-white shadow-sm border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1 transition-all" title="Välj en annan rätt från banken">
-                                            <i class="fas fa-exchange-alt"></i> Byt ut
-                                        </button>
-                                        <button onclick="window.app.toggleLock('${day}')" class="${locked ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'} p-1 transition-colors" title="Lås dag">
-                                            <i class="fas ${locked ? 'fa-lock' : 'fa-lock-open'}"></i>
-                                        </button>
-                                        <button onclick="window.app.editDish('${dish?.id}')" class="text-slate-300 hover:text-blue-500 p-1 transition-colors" title="Redigera recept">
-                                            <i class="fas fa-pen text-[10px]"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight">${dish ? dish.namn : '<span class="text-slate-300 italic">Inget valt...</span>'}</h3>
-                                <p class="text-[11px] sm:text-xs text-slate-500 mt-1 truncate print:max-w-none print:whitespace-normal print:line-clamp-2">${dish ? (dish.ingredienser || []).join(', ') : ''}</p>
+                                            <i class="fas fa-exchange-alt"></i> Byt ut                                        </button>                                        <button onclick="window.app.toggleLock('${day}')" class="${locked ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'} p-1 transition-colors" title="Lås dag">
+                                            <i class="fas ${locked ? 'fa-lock' : 'fa-lock-open'}"></i>                                        </button>                                        <button onclick="window.app.editDish('${dish?.id}')" class="text-slate-300 hover:text-blue-500 p-1 transition-colors" title="Redigera recept">
+                                            <i class="fas fa-pen text-[10px]"></i>                                        </button>                                    </div>                                </div>                                
+                                
+                                <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight truncate">${dish ? dish.namn : '<span class="text-slate-300 italic">Inget valt...</span>'}</h3>                                
+                                
+                                <!-- FELRÄTTNING: break-words tillåter ingredienserna att byta rad snyggt -->
+                                <p class="text-[11px] sm:text-xs text-slate-500 mt-1 break-words print:max-w-none print:whitespace-normal">${dish ? (dish.ingredienser || []).join(', ') : ''}</p>                            
                             </div>
-
+                            
                             ${imageHTML}
                             
-                        </div>`;
-                });
+                        </div>`;                });
                 this.generateShoppingList();
             },
 
@@ -1127,28 +1107,18 @@
                     container.innerHTML += `
                         <div class="category-section mt-6 mb-2">
                             <h3 class="flex items-center gap-2 px-2 py-1 mb-3 text-sm font-black uppercase tracking-widest ${info.color} rounded-lg w-fit">
-                                ${info.label} <span class="opacity-50 text-[10px] font-medium">(${dishes.length})</span>
-                            </h3>
-                            <div class="grid gap-3">
+                                ${info.label} <span class="opacity-50 text-[10px] font-medium">(${dishes.length})</span>                            </h3>                            <div class="grid gap-3">
                                 ${dishes.map(d => `
                                     <div class="dish-item bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center transition-all hover:border-emerald-200">
                                         <div class="flex items-center gap-3 overflow-hidden">
                                             ${d.bild ? `<img src="${d.bild}" class="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0 border border-slate-100">` : `<div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0 text-slate-300 border border-slate-100"><i class="fas fa-utensils"></i></div>`}
                                             
                                             <div class="overflow-hidden">
-                                                <h4 class="font-bold text-slate-800 text-sm truncate">${d.namn}</h4>
-                                                <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>
-                                            </div>
-                                        </div>
-                                        <div class="flex gap-3 ml-4 no-print flex-shrink-0">
+                                                <h4 class="font-bold text-slate-800 text-sm truncate">${d.namn}</h4>                                                <p class="text-[10px] text-slate-400 truncate">${(d.ingredienser || []).join(', ')}</p>                                            </div>                                        </div>                                        <div class="flex gap-3 ml-4 no-print flex-shrink-0">
                                             <button onclick="window.app.editDish('${d.id}')" class="text-slate-300 hover:text-emerald-500"><i class="fas fa-pen"></i></button>
                                             <button onclick="window.app.deleteDish('${d.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash"></i></button>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
+                                        </div>                                    </div>                                `).join('')}
+                            </div>                        </div>                    `;
                 });
             },
 
@@ -1201,8 +1171,7 @@
                     const isBasvara = c === 'Basvaror';
                     return `
                         <div class="${isBasvara ? 'mt-6 pt-4 border-t border-amber-200 opacity-60' : 'mt-2'}">
-                            <h4 class="text-[10px] font-black uppercase tracking-tighter mb-2 text-amber-800/50">${c}</h4>
-                            <ul class="space-y-2">
+                            <h4 class="text-[10px] font-black uppercase tracking-tighter mb-2 text-amber-800/50">${c}</h4>                            <ul class="space-y-2">
                                 ${items.map(i => {
                                     const price = this.getPriceEstimate(i);
                                     const hasCustomPrice = state.customPrices && state.customPrices[i] !== undefined;
@@ -1210,20 +1179,10 @@
                                     <li class="flex justify-between items-center group py-1 border-b border-slate-100 print:border-slate-200">
                                         <div class="flex items-center gap-3">
                                             <input type="checkbox" class="w-5 h-5 rounded border-amber-300 text-emerald-600 no-print">
-                                            <span class="hidden print:inline text-slate-400 mr-2">•</span>
-                                            <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>
-                                            <span class="text-[11px] font-semibold ${hasCustomPrice ? 'text-emerald-700 font-bold' : 'text-amber-700/60'} ml-1 no-print">
+                                            <span class="hidden print:inline text-slate-400 mr-2">•</span>                                            <span class="text-sm text-amber-900 capitalize font-medium">${i}</span>                                            <span class="text-[11px] font-semibold ${hasCustomPrice ? 'text-emerald-700 font-bold' : 'text-amber-700/60'} ml-1 no-print">
                                                 ~${price} kr ${hasCustomPrice ? '✨' : ''}
-                                            </span>
-                                        </div>
-                                        <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" class="text-amber-400 hover:text-emerald-600 p-1 no-print">
-                                            <i class="fas fa-tag text-[10px]"></i>
-                                        </button>
-                                    </li>`;
-                                }).join('')}
-                            </ul>
-                        </div>`;
-                }).join('');
+                                            </span>                                        </div>                                        <button onclick="window.app.openCategoryModal('${i.replace(/'/g, "\\'")}')" class="text-amber-400 hover:text-emerald-600 p-1 no-print">                                            <i class="fas fa-tag text-[10px]"></i>                                        </button>                                    </li>`;                                }).join('')}
+                            </ul>                        </div>`;                }).join('');
             },
 
             notify(msg) {
@@ -1245,7 +1204,6 @@
             }
         };
 
-        // --- STARTA UP & LYSSNA PÅ FIREBASE ---
         document.getElementById('room-id-val').innerText = state.room;
         document.getElementById('room-label').innerText = `| ${state.room}`;
 
